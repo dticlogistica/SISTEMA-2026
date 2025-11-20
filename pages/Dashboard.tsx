@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { inventoryService } from '../services/inventoryService';
@@ -60,7 +61,7 @@ const Dashboard: React.FC = () => {
         />
          <StatCard 
           title="Saídas (Mês)" 
-          value="R$ 1.500,00" 
+          value={`R$ ${stats.currentMonthOutflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} 
           icon={<TrendingUp size={24} />} 
           color="bg-indigo-500" 
         />

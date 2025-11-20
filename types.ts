@@ -75,4 +75,5 @@ export interface DashboardStats {
   lowStockCount: number;
   monthlyOutflow: { month: string; value: number }[];
   topProducts: { name: string; value: number }[];
+  currentMonthOutflow: number;
 }

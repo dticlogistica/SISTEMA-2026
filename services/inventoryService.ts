@@ -21,6 +21,19 @@ class InventoryService {
     return DEFAULT_API_URL;
   }
 
+  // Helper seguro para parsear números
+  private parseNumber(val: any): number {
+    if (val === null || val === undefined || val === '') return 0;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      // Trata casos como "1.500,00" ou "10,5" substituindo vírgula por ponto se necessário
+      const clean = val.replace(',', '.');
+      const num = parseFloat(clean);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  }
+
   private async fetchAllData() {
     if (this.dataLoaded && this.cachedUsers.length > 0) return;
 
@@ -64,18 +77,27 @@ class InventoryService {
         active: u.active === true || u.active === "TRUE"
       }));
       
-      this.cachedProducts = (data.products || []).map((p: any) => ({
-        ...p,
-        currentBalance: Number(p.currentBalance),
-        unitValue: Number(p.unitValue),
-        initialQty: Number(p.initialQty),
-        minStock: Number(p.minStock)
-      }));
+      // Parser robusto para produtos
+      this.cachedProducts = (data.products || []).map((p: any) => {
+        const initialQty = this.parseNumber(p.initialQty);
+        const currentBal = this.parseNumber(p.currentBalance);
+        
+        // Se o currentBalance for NaN ou estranho, tenta usar o initialQty ou 0
+        const safeBalance = isNaN(currentBal) ? (isNaN(initialQty) ? 0 : initialQty) : currentBal;
+
+        return {
+          ...p,
+          currentBalance: safeBalance,
+          unitValue: this.parseNumber(p.unitValue),
+          initialQty: initialQty,
+          minStock: this.parseNumber(p.minStock)
+        };
+      });
 
       this.cachedMovements = (data.movements || []).map((m: any) => ({
         ...m,
-        quantity: Number(m.quantity),
-        value: Number(m.value),
+        quantity: this.parseNumber(m.quantity),
+        value: this.parseNumber(m.value),
         isReversed: m.isReversed === true || m.isReversed === "TRUE"
       }));
 
@@ -238,6 +260,8 @@ class InventoryService {
     const lowStock = this.cachedProducts.filter(p => p.currentBalance <= p.minStock).length;
     
     const monthlyData = new Map<string, number>();
+    let currentMonthOutflow = 0;
+    const now = new Date();
     
     this.cachedMovements
       .filter(m => m.type === MovementType.EXIT && !m.isReversed)
@@ -245,6 +269,11 @@ class InventoryService {
         const date = new Date(m.date);
         const key = date.toLocaleString('pt-BR', { month: 'short' });
         monthlyData.set(key, (monthlyData.get(key) || 0) + m.value);
+
+        // Verifica se é do mês e ano atual
+        if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+          currentMonthOutflow += m.value;
+        }
       });
 
     const monthlyOutflow = Array.from(monthlyData.entries()).map(([month, value]) => ({ month, value }));
@@ -259,7 +288,8 @@ class InventoryService {
       totalItems: this.cachedProducts.length,
       lowStockCount: lowStock,
       monthlyOutflow,
-      topProducts
+      topProducts,
+      currentMonthOutflow
     };
   }
 
