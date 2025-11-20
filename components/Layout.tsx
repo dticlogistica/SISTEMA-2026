@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, Menu, X, PackageSearch, User as UserIcon, RefreshCw } from 'lucide-react';
@@ -86,8 +87,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-primary text-white shadow-xl z-10 print:hidden">
         <div className="p-6 border-b border-slate-700">
-          <h1 className="text-2xl font-bold text-accent tracking-tight">Almoxarifado<span className="text-white">Pro</span></h1>
-          <p className="text-xs text-slate-400 mt-1">Gestão Inteligente</p>
+          <h1 className="text-xl font-bold text-accent tracking-tight leading-tight">SISTEMA <span className="text-white">DTIC-PRÓ</span></h1>
+          <p className="text-xs font-bold text-slate-300 mt-2">GESTÃO DE ALMOXARIFADO</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Seção Logística - 2026</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {filteredNav.map((item) => {
@@ -134,7 +136,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 bg-primary text-white z-50 px-4 py-3 flex items-center justify-between shadow-md print:hidden">
-        <span className="font-bold text-lg">AlmoxarifadoPro</span>
+        <div className="flex flex-col">
+             <span className="font-bold text-lg leading-none">DTIC-PRÓ</span>
+             <span className="text-[10px] text-slate-400">Seção Logística - 2026</span>
+        </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X /> : <Menu />}
         </button>

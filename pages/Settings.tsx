@@ -727,6 +727,15 @@ const Settings: React.FC = () => {
                      <p className="text-xs text-slate-500 mt-2 italic">Nota: O arquivo <code>vercel.json</code> já foi adicionado ao projeto para garantir que a navegação entre páginas funcione corretamente.</p>
                    </div>
                 </div>
+
+                <div className="flex gap-4">
+                   <div className="bg-emerald-100 w-8 h-8 rounded-full flex items-center justify-center font-bold text-emerald-700 shrink-0 border border-emerald-200">5</div>
+                   <div>
+                     <h4 className="font-bold text-slate-800">Nome Profissional (Domínio)</h4>
+                     <p className="text-sm mt-1">Para tirar o ".vercel.app", na Vercel vá em <strong>Settings > Domains</strong>.</p>
+                     <p className="text-sm text-slate-600">Lá você pode editar o subdomínio grátis (ex: <code>minha-empresa.vercel.app</code>) ou adicionar um domínio comprado (ex: <code>www.minhaempresa.com.br</code>).</p>
+                   </div>
+                </div>
               </div>
               
               <div className="pt-4 text-center">
