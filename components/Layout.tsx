@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, Menu, X, PackageSearch, User as UserIcon, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, Menu, X, PackageSearch, User as UserIcon, RefreshCw, LogIn, LogOut } from 'lucide-react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
 
@@ -42,31 +42,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       name: 'Dashboard', 
       path: '/', 
       icon: <LayoutDashboard size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR] 
+      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR, UserRole.GUEST] 
     },
     { 
       name: 'Estoque Geral', 
       path: '/inventory', 
       icon: <PackageSearch size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR] 
-    },
-    { 
-      name: 'Distribuição', 
-      path: '/distribution', 
-      icon: <ArrowUpFromLine size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR] 
-    },
-    { 
-      name: 'Entrada / NE', 
-      path: '/entry', 
-      icon: <Box size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER] // Operator cannot see
+      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR, UserRole.GUEST] 
     },
     { 
       name: 'Relatórios', 
       path: '/reports', 
       icon: <FileText size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER] // Operator cannot see
+      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.GUEST] // GUEST CAN VIEW
+    },
+    { 
+      name: 'Distribuição', 
+      path: '/distribution', 
+      icon: <ArrowUpFromLine size={20} />, 
+      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR] // Restricted
+    },
+    { 
+      name: 'Entrada / NE', 
+      path: '/entry', 
+      icon: <Box size={20} />, 
+      roles: [UserRole.ADMIN, UserRole.MANAGER] // Restricted
     },
     { 
       name: 'Configurações', 
@@ -78,23 +78,41 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const filteredNav = allNavItems.filter(item => canAccess(item.roles));
 
-  // Helper to switch users for demo purposes
+  // Helper to switch users for demo purposes (acts as Login/Logout)
   const handleSwitchUser = async () => {
-     // Cycle: Admin -> Manager -> Operator -> Admin
-     const roles = [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR];
-     const currentIdx = roles.indexOf(currentUser?.role || UserRole.ADMIN);
-     const nextIdx = (currentIdx + 1) % roles.length;
-     
-     // In a real app, this would be a logout/login. Here we call the service helper.
-     const newUser = await inventoryService.switchUser(nextIdx);
-     // Subscription will handle state update, but switchUser updates local storage immediately
-     setCurrentUser(newUser);
+     if (currentUser?.role === UserRole.GUEST) {
+         // If Guest, log in as Admin (Simulated Login)
+         const allUsers = await inventoryService.getUsers();
+         if (allUsers.length > 0) {
+             const admin = allUsers.find(u => u.role === UserRole.ADMIN) || allUsers[0];
+             await inventoryService.switchUser(allUsers.indexOf(admin));
+         } else {
+             // If no users loaded yet, fallback logic in service
+             await inventoryService.switchUser(0); 
+         }
+     } else {
+         // If Logged in, cycle through roles: Admin -> Manager -> Operator -> Guest (Logout)
+         const roles = [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR];
+         const currentIdx = roles.indexOf(currentUser?.role || UserRole.ADMIN);
+         
+         if (currentIdx === roles.length - 1) {
+             // Last role -> Logout to Guest
+             await inventoryService.logout();
+         } else {
+             // Next role
+             const allUsers = await inventoryService.getUsers();
+             // Logic to find next user of different role (simplified for demo)
+             await inventoryService.switchUser(currentIdx + 1);
+         }
+     }
   };
 
   const handleRefresh = async () => {
     // Trigger a background refresh
     await inventoryService.refreshData();
   };
+
+  const isGuest = currentUser?.role === UserRole.GUEST;
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden print:h-auto print:overflow-visible">
@@ -132,17 +150,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span className="font-medium">Sincronizar</span>
           </button>
         </nav>
-        <div className="p-4 border-t border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors" onClick={handleSwitchUser} title="Clique para alternar usuário (Demo)">
+        
+        <div className="p-4 border-t border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors" onClick={handleSwitchUser} title={isGuest ? "Fazer Login" : "Alternar Usuário / Sair"}>
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+              isGuest ? 'bg-slate-600' :
               currentUser?.role === UserRole.ADMIN ? 'bg-purple-600' : 
               currentUser?.role === UserRole.MANAGER ? 'bg-emerald-600' : 'bg-blue-600'
             }`}>
-              {currentUser?.name.charAt(0)}
+              {isGuest ? <UserIcon size={20} /> : currentUser?.name.charAt(0)}
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden flex-1">
               <p className="text-sm font-medium truncate">{currentUser?.name || 'Carregando...'}</p>
               <p className="text-[10px] text-slate-400 uppercase tracking-wider">{currentUser?.role}</p>
+            </div>
+            <div>
+                {isGuest ? <LogIn size={16} className="text-accent" /> : <LogOut size={16} className="text-slate-500" />}
             </div>
           </div>
         </div>
@@ -187,11 +210,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
              
              <div className="mt-8 border-t border-slate-700 pt-4" onClick={handleSwitchUser}>
                 <div className="flex items-center gap-3 text-slate-300">
-                   <UserIcon size={20} />
-                   <div>
+                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                      isGuest ? 'bg-slate-600' : 'bg-accent'
+                   }`}>
+                      {isGuest ? <UserIcon size={16} /> : currentUser?.name.charAt(0)}
+                   </div>
+                   <div className="flex-1">
                      <p className="text-sm">{currentUser?.name}</p>
                      <p className="text-xs opacity-50">{currentUser?.role}</p>
                    </div>
+                   {isGuest ? <LogIn size={16} /> : <LogOut size={16} />}
                 </div>
              </div>
            </div>

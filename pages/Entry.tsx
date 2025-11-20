@@ -51,12 +51,15 @@ const Entry: React.FC = () => {
   }, []);
 
   // Access Control Check
-  if (!pageLoading && currentUser && currentUser.role === UserRole.OPERATOR) {
+  const restricted = currentUser && (currentUser.role === UserRole.OPERATOR || currentUser.role === UserRole.GUEST);
+
+  if (!pageLoading && restricted) {
     return (
        <div className="flex flex-col items-center justify-center h-96 text-slate-400">
          <Lock size={64} className="mb-4 opacity-20" />
          <h2 className="text-2xl font-bold text-slate-600">Acesso Restrito</h2>
-         <p>Operadores não têm permissão para adicionar novas Notas de Empenho.</p>
+         <p>Você não tem permissão para adicionar Notas de Empenho.</p>
+         {currentUser?.role === UserRole.GUEST && <p className="text-sm mt-2">Faça login para acessar esta função.</p>}
        </div>
     );
   }

@@ -1,8 +1,10 @@
+
 // Enums
 export enum UserRole {
   ADMIN = 'ADMIN',
   MANAGER = 'GESTOR',
-  OPERATOR = 'OPERADOR'
+  OPERATOR = 'OPERADOR',
+  GUEST = 'VISITANTE'
 }
 
 export enum MovementType {

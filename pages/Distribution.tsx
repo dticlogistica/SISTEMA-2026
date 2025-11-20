@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { inventoryService } from '../services/inventoryService';
-import { AlertCircle, CheckCircle, ShoppingCart, Printer, Trash2, ArrowUpFromLine, Package, User, UserCheck, Layers } from 'lucide-react';
+import { AlertCircle, CheckCircle, ShoppingCart, Printer, Trash2, ArrowUpFromLine, Package, User, UserCheck, Layers, Lock } from 'lucide-react';
+import { UserRole, User as UserType } from '../types';
 
 interface CartItem {
   productName: string;
@@ -27,19 +28,37 @@ const Distribution: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null); // For printable view
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
        try {
+        const user = await inventoryService.getCurrentUser();
+        setCurrentUser(user);
         setAvailableProducts(await inventoryService.getConsolidatedStock());
        } catch (e) {
          console.error("Failed to load for distribution:", e);
+       } finally {
+         setPageLoading(false);
        }
     };
     
     load();
     return inventoryService.subscribe(load);
   }, [success]); // Reload when success triggers, but also when background sync happens
+
+  // Access Control Check
+  if (!pageLoading && currentUser && currentUser.role === UserRole.GUEST) {
+      return (
+         <div className="flex flex-col items-center justify-center h-96 text-slate-400">
+           <Lock size={64} className="mb-4 opacity-20" />
+           <h2 className="text-2xl font-bold text-slate-600">Área Restrita</h2>
+           <p>Você precisa estar logado para realizar distribuições de material.</p>
+           <p className="text-sm mt-2 text-slate-500">Use o menu lateral para fazer login.</p>
+         </div>
+      );
+  }
 
   // Helper to get current selected product stats
   const currentProductStats = availableProducts.find(p => p.name === selectedProduct);
@@ -85,7 +104,7 @@ const Distribution: React.FC = () => {
           item.allocations.forEach(alloc => allMovements.push(alloc));
         });
 
-        const success = await inventoryService.executeDistribution(allMovements, 'user@email.com', observation);
+        const success = await inventoryService.executeDistribution(allMovements, currentUser?.email || 'user@email.com', observation);
         
         if (success) {
           // Generate receipt ID in format DTIC - XXX/2026

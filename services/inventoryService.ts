@@ -264,26 +264,35 @@ class InventoryService {
     
     const storedEmail = localStorage.getItem('almoxarifado_user');
     if (storedEmail) {
+      // Se encontrou no storage, valida se ainda existe na lista atualizada
       const found = this.cachedUsers.find(u => u.email === storedEmail && u.active);
       if (found) return found;
     }
 
-    const admin = this.cachedUsers.find(u => u.role === UserRole.ADMIN && u.active);
-    if (admin) {
-      this.setCurrentUser(admin);
-      return admin;
-    }
-
-    return { email: 'admin@temp.com', name: 'Admin Temporário', role: UserRole.ADMIN, active: true };
+    // Se não houver usuário logado ou ele for inválido, retorna VISITANTE por padrão
+    // Isso garante acesso público ao Dashboard e Estoque
+    return { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
   }
 
   async switchUser(index: number): Promise<User> {
     await this.fetchAllData();
-    if (this.cachedUsers.length === 0) return this.getCurrentUser();
+    
+    // Se não houver usuários cadastrados, volta para visitante
+    if (this.cachedUsers.length === 0) {
+        const guest = { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
+        localStorage.removeItem('almoxarifado_user');
+        this.notifyListeners();
+        return guest;
+    }
 
     const user = this.cachedUsers[index % this.cachedUsers.length];
     this.setCurrentUser(user);
     return user;
+  }
+  
+  async logout(): Promise<void> {
+    localStorage.removeItem('almoxarifado_user');
+    this.notifyListeners();
   }
 
   private setCurrentUser(user: User) {

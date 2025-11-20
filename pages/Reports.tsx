@@ -65,17 +65,6 @@ const Reports: React.FC = () => {
     setFilteredMovements(result);
   }, [search, typeFilter, dateStart, dateEnd, movements]);
 
-  // Access Control Check for Page Content (Double check aside from Nav)
-  if (!loading && currentUser && currentUser.role === UserRole.OPERATOR) {
-    return (
-       <div className="flex flex-col items-center justify-center h-96 text-slate-400">
-         <Lock size={64} className="mb-4 opacity-20" />
-         <h2 className="text-2xl font-bold text-slate-600">Acesso Restrito</h2>
-         <p>Operadores não têm permissão para visualizar relatórios.</p>
-       </div>
-    );
-  }
-
   const handleReverse = async (movementId: string) => {
     if (!window.confirm('Deseja realmente estornar esta saída? O saldo voltará para o estoque.')) return;
     
@@ -95,7 +84,7 @@ const Reports: React.FC = () => {
     }
   };
 
-  // Can user reverse? (Admin or Manager)
+  // Can user reverse? (Admin or Manager ONLY)
   const canUserReverse = currentUser && (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.MANAGER);
 
   const activeMovements = filteredMovements.filter(m => m.type !== MovementType.REVERSAL && !m.isReversed);
@@ -234,9 +223,9 @@ const Reports: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 print:divide-slate-200">
               {loading ? (
-                 <tr><td colSpan={8} className="p-8 text-center">Carregando...</td></tr>
+                 <tr><td colSpan={canUserReverse ? 8 : 7} className="p-8 text-center">Carregando...</td></tr>
               ) : filteredMovements.length === 0 ? (
-                 <tr><td colSpan={8} className="p-8 text-center text-slate-400">Nenhum registro encontrado para os filtros selecionados.</td></tr>
+                 <tr><td colSpan={canUserReverse ? 8 : 7} className="p-8 text-center text-slate-400">Nenhum registro encontrado para os filtros selecionados.</td></tr>
               ) : (
                 filteredMovements.map((m) => {
                   const isReversed = m.isReversed;
