@@ -115,24 +115,33 @@ class InventoryService {
     if (this.fetchPromise) return this.fetchPromise;
 
     this.fetchPromise = (async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 segundos de timeout máximo
+
       try {
         const url = this.getApiUrl();
+        
+        // Se não tiver URL configurada ou for a padrão de placeholder
         if (!url || url.includes('COLE_SUA_URL_AQUI')) {
           console.warn("API URL not configured");
-          // Se não tem URL e não tem dados, inicializa vazio para não travar a tela
+          // Inicializa vazio para não travar
           if (!this.dataLoaded) {
              this.processData({ users: [], products: [], movements: [], nes: [] }, true);
              this.dataLoaded = true;
           }
+          clearTimeout(timeoutId);
           return;
         }
 
         const response = await fetch(`${url}?action=getAll&t=${Date.now()}`, {
           method: 'GET',
           redirect: 'follow',
-          credentials: 'omit'
+          credentials: 'omit',
+          signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
           throw new Error(`Erro HTTP: ${response.status}`);
         }
@@ -158,16 +167,18 @@ class InventoryService {
         this.dataLoaded = true;
         this.lastFetchTime = Date.now();
         
-      } catch (error) {
+      } catch (error: any) {
         console.error("Refresh falhou:", error);
-        // CONTINGÊNCIA: Se falhar e não tivermos dados, inicializamos vazio para o app abrir
-        // Isso permite que o usuário vá em Configurações arrumar a URL
+        
+        // CONTINGÊNCIA: Se falhar (timeout, rede, url errada), inicializa vazio
+        // IMPORTANTE: dataLoaded = true destrava a UI
         if (!this.dataLoaded) {
-            console.warn("Inicializando com dados vazios de contingência.");
+            console.warn("Ativando modo de contingência (dados vazios).");
             this.processData({ users: [], products: [], movements: [], nes: [] }, true);
             this.dataLoaded = true;
         }
       } finally {
+        clearTimeout(timeoutId);
         this.fetchPromise = null;
       }
     })();
@@ -238,8 +249,18 @@ class InventoryService {
           const url = this.getApiUrl();
           if (!url || url.includes('COLE_SUA_URL_AQUI')) return { success: false, message: "URL da API não configurada." };
           
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+
           const start = Date.now();
-          const response = await fetch(`${url}?action=getAll&t=${start}`, { method: 'GET', redirect: 'follow', credentials: 'omit' });
+          const response = await fetch(`${url}?action=getAll&t=${start}`, { 
+            method: 'GET', 
+            redirect: 'follow', 
+            credentials: 'omit',
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
           if (!response.ok) return { success: false, message: `Erro HTTP: ${response.status}` };
 
           const text = await response.text();
@@ -262,6 +283,12 @@ class InventoryService {
   async getCurrentUser(): Promise<User> {
     await this.fetchAllData();
     
+    // Se após tentar carregar, a lista de usuários estiver vazia (erro ou planilha nova),
+    // Retorna um ADMIN TEMPORÁRIO para permitir configurar o sistema.
+    if (this.cachedUsers.length === 0) {
+         return { email: 'admin@setup', name: 'Admin Temporário', role: UserRole.ADMIN, active: true };
+    }
+
     const storedEmail = localStorage.getItem('almoxarifado_user');
     if (storedEmail) {
       // Se encontrou no storage, valida se ainda existe na lista atualizada
@@ -269,8 +296,7 @@ class InventoryService {
       if (found) return found;
     }
 
-    // Se não houver usuário logado ou ele for inválido, retorna VISITANTE por padrão
-    // Isso garante acesso público ao Dashboard e Estoque
+    // Se não houver usuário logado, retorna VISITANTE (acesso público ao dashboard)
     return { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
   }
 

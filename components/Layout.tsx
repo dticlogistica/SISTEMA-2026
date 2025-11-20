@@ -11,7 +11,11 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Inicializa como VISITANTE por padrão para que o menu apareça imediatamente
+  // Isso melhora a UX enquanto os dados reais estão sendo carregados
+  const [currentUser, setCurrentUser] = useState<User>({ 
+      email: '', name: 'Carregando...', role: UserRole.GUEST, active: true 
+  });
   const location = useLocation();
 
   useEffect(() => {
