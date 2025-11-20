@@ -23,9 +23,14 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const loadStats = async () => {
-      const data = await inventoryService.getDashboardStats();
-      setStats(data);
-      setLoading(false);
+      try {
+        const data = await inventoryService.getDashboardStats();
+        setStats(data);
+      } catch (error) {
+        console.error("Failed to load dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadStats();
@@ -34,7 +39,7 @@ const Dashboard: React.FC = () => {
   }, []);
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div></div>;
-  if (!stats) return <div>Erro ao carregar dados.</div>;
+  if (!stats) return <div>Erro ao carregar dados. Verifique a conexão na aba Configurações.</div>;
 
   return (
     <div className="space-y-6">

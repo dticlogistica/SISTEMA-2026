@@ -280,11 +280,16 @@ const Settings: React.FC = () => {
   });
 
   const loadUsers = async () => {
-    const data = await inventoryService.getUsers();
-    const current = await inventoryService.getCurrentUser();
-    setCurrentUser(current);
-    setUsers([...data]); 
-    setLoading(false);
+    try {
+      const data = await inventoryService.getUsers();
+      const current = await inventoryService.getCurrentUser();
+      setCurrentUser(current);
+      setUsers([...data]); 
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

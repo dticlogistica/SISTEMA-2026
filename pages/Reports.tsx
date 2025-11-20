@@ -18,12 +18,17 @@ const Reports: React.FC = () => {
   const [dateEnd, setDateEnd] = useState('');
 
   const loadData = async () => {
-    const user = await inventoryService.getCurrentUser();
-    setCurrentUser(user);
-    const data = await inventoryService.getMovements();
-    setMovements(data);
-    setFilteredMovements(data); 
-    setLoading(false);
+    try {
+      const user = await inventoryService.getCurrentUser();
+      setCurrentUser(user);
+      const data = await inventoryService.getMovements();
+      setMovements(data);
+      setFilteredMovements(data); 
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -75,16 +80,19 @@ const Reports: React.FC = () => {
     if (!window.confirm('Deseja realmente estornar esta saída? O saldo voltará para o estoque.')) return;
     
     setProcessingId(movementId);
-    const success = await inventoryService.reverseMovement(movementId, 'admin@sys.com');
-    
-    if (success) {
-      // Note: Subscription will auto-update the list when server responds successfully
-      // but we can also wait a bit or let the service handle it.
-      alert('Estorno realizado com sucesso.');
-    } else {
-      alert('Erro ao realizar estorno.');
+    try {
+      const success = await inventoryService.reverseMovement(movementId, 'admin@sys.com');
+      
+      if (success) {
+        alert('Estorno realizado com sucesso.');
+      } else {
+        alert('Erro ao realizar estorno.');
+      }
+    } catch (e) {
+      alert('Erro de rede.');
+    } finally {
+      setProcessingId(null);
     }
-    setProcessingId(null);
   };
 
   // Can user reverse? (Admin or Manager)
@@ -93,6 +101,8 @@ const Reports: React.FC = () => {
   const activeMovements = filteredMovements.filter(m => m.type !== MovementType.REVERSAL && !m.isReversed);
   const totalEntry = activeMovements.filter(m => m.type === MovementType.ENTRY).reduce((acc, m) => acc + m.value, 0);
   const totalExit = activeMovements.filter(m => m.type === MovementType.EXIT).reduce((acc, m) => acc + m.value, 0);
+
+  if (loading) return <div className="p-8 text-center text-slate-500">Carregando relatórios...</div>;
 
   return (
     <div className="space-y-6">

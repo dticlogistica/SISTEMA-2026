@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { Plus, Trash2, Save, PackagePlus, AlertCircle, CheckCircle, Lock } from 'lucide-react';
@@ -37,10 +38,16 @@ const Entry: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
-    inventoryService.getCurrentUser().then(user => {
-        setCurrentUser(user);
-        setPageLoading(false);
-    });
+    const load = async () => {
+       try {
+         setCurrentUser(await inventoryService.getCurrentUser());
+       } catch (e) {
+         console.error(e);
+       } finally {
+         setPageLoading(false);
+       }
+    };
+    load();
   }, []);
 
   // Access Control Check
@@ -77,23 +84,30 @@ const Entry: React.FC = () => {
     if (!neNumber || !supplier || itemsList.length === 0) return;
 
     setLoading(true);
-    const success = await inventoryService.createNotaEmpenho(
-      { number: neNumber, supplier, date: neDate },
-      itemsList
-    );
+    try {
+        const success = await inventoryService.createNotaEmpenho(
+          { number: neNumber, supplier, date: neDate },
+          itemsList
+        );
 
-    if (success) {
-      setSuccessMsg(`Nota de Empenho ${neNumber} cadastrada com sucesso!`);
-      // Reset Form
-      setNeNumber('');
-      setSupplier('');
-      setItemsList([]);
-      setTimeout(() => setSuccessMsg(''), 5000);
+        if (success) {
+          setSuccessMsg(`Nota de Empenho ${neNumber} cadastrada com sucesso!`);
+          // Reset Form
+          setNeNumber('');
+          setSupplier('');
+          setItemsList([]);
+          setTimeout(() => setSuccessMsg(''), 5000);
+        }
+    } catch(e) {
+        alert('Erro ao salvar. Verifique a conexão.');
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   };
 
   const totalValueNE = itemsList.reduce((acc, item) => acc + (item.initialQty * item.unitValue), 0);
+
+  if (pageLoading) return <div className="p-8 text-center text-slate-500">Carregando...</div>;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">

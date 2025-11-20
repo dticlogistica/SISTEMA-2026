@@ -30,7 +30,11 @@ const Distribution: React.FC = () => {
 
   useEffect(() => {
     const load = async () => {
-       setAvailableProducts(await inventoryService.getConsolidatedStock());
+       try {
+        setAvailableProducts(await inventoryService.getConsolidatedStock());
+       } catch (e) {
+         console.error("Failed to load for distribution:", e);
+       }
     };
     
     load();
@@ -46,19 +50,24 @@ const Distribution: React.FC = () => {
     if (!selectedProduct || quantity <= 0) return;
 
     setLoading(true);
-    const result = await inventoryService.calculateDistribution(selectedProduct, quantity);
-    
-    const newItem: CartItem = {
-      productName: selectedProduct,
-      requestedQty: quantity,
-      allocations: result.itemsToDeduct,
-      isPossible: result.remainingQty === 0
-    };
+    try {
+        const result = await inventoryService.calculateDistribution(selectedProduct, quantity);
+        
+        const newItem: CartItem = {
+          productName: selectedProduct,
+          requestedQty: quantity,
+          allocations: result.itemsToDeduct,
+          isPossible: result.remainingQty === 0
+        };
 
-    setCart(prev => [...prev, newItem]);
-    setQuantity(0);
-    setSelectedProduct('');
-    setLoading(false);
+        setCart(prev => [...prev, newItem]);
+        setQuantity(0);
+        setSelectedProduct('');
+    } catch (e) {
+        alert('Erro ao calcular distribuição. Tente novamente.');
+    } finally {
+        setLoading(false);
+    }
   }, [selectedProduct, quantity]);
 
   const handleRemoveItem = (index: number) => {
@@ -69,36 +78,40 @@ const Distribution: React.FC = () => {
     if (cart.length === 0 || cart.some(c => !c.isPossible)) return;
     
     setLoading(true);
-    
-    // Flatten all allocations
-    const allMovements: { productId: string; neId: string; qty: number; unitValue: number }[] = [];
-    cart.forEach(item => {
-      item.allocations.forEach(alloc => allMovements.push(alloc));
-    });
+    try {
+        // Flatten all allocations
+        const allMovements: { productId: string; neId: string; qty: number; unitValue: number }[] = [];
+        cart.forEach(item => {
+          item.allocations.forEach(alloc => allMovements.push(alloc));
+        });
 
-    const success = await inventoryService.executeDistribution(allMovements, 'user@email.com', observation);
-    
-    if (success) {
-      // Generate receipt ID in format DTIC - XXX/2026
-      const randomNum = Math.floor(Math.random() * 999) + 1;
-      const receiptId = `DTIC - ${randomNum.toString().padStart(3, '0')}/2026`;
+        const success = await inventoryService.executeDistribution(allMovements, 'user@email.com', observation);
+        
+        if (success) {
+          // Generate receipt ID in format DTIC - XXX/2026
+          const randomNum = Math.floor(Math.random() * 999) + 1;
+          const receiptId = `DTIC - ${randomNum.toString().padStart(3, '0')}/2026`;
 
-      setReceiptData({
-        id: receiptId,
-        date: new Date().toLocaleString('pt-BR'),
-        items: cart,
-        totalValue: allMovements.reduce((sum, m) => sum + (m.qty * m.unitValue), 0),
-        obs: observation,
-        receiverName,
-        distributorName
-      });
-      setSuccess(true);
-      setCart([]);
-      setObservation('');
-      setReceiverName('');
-      setDistributorName('');
+          setReceiptData({
+            id: receiptId,
+            date: new Date().toLocaleString('pt-BR'),
+            items: cart,
+            totalValue: allMovements.reduce((sum, m) => sum + (m.qty * m.unitValue), 0),
+            obs: observation,
+            receiverName,
+            distributorName
+          });
+          setSuccess(true);
+          setCart([]);
+          setObservation('');
+          setReceiverName('');
+          setDistributorName('');
+        }
+    } catch (e) {
+        alert('Falha ao executar distribuição. Verifique sua conexão.');
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   };
 
   if (success && receiptData) {

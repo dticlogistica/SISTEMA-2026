@@ -16,10 +16,17 @@ const Inventory: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'consolidated' | 'detailed'>('consolidated');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      setProducts(await inventoryService.getProducts());
+      try {
+        setProducts(await inventoryService.getProducts());
+      } catch (e) {
+        console.error("Failed to load inventory:", e);
+      } finally {
+        setLoading(false);
+      }
     };
     
     load();
@@ -47,6 +54,8 @@ const Inventory: React.FC = () => {
     acc[curr.name].details.push(curr);
     return acc;
   }, {} as Record<string, ConsolidatedItem>)) as ConsolidatedItem[];
+
+  if (loading) return <div className="p-8 text-center text-slate-500">Carregando estoque...</div>;
 
   return (
     <div className="space-y-6">

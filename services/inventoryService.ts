@@ -119,6 +119,11 @@ class InventoryService {
         const url = this.getApiUrl();
         if (!url || url.includes('COLE_SUA_URL_AQUI')) {
           console.warn("API URL not configured");
+          // Se não tem URL e não tem dados, inicializa vazio para não travar a tela
+          if (!this.dataLoaded) {
+             this.processData({ users: [], products: [], movements: [], nes: [] }, true);
+             this.dataLoaded = true;
+          }
           return;
         }
 
@@ -155,8 +160,13 @@ class InventoryService {
         
       } catch (error) {
         console.error("Refresh falhou:", error);
-        // Se não temos dados carregados (nem do cache), propagamos o erro
-        if (!this.dataLoaded) throw error;
+        // CONTINGÊNCIA: Se falhar e não tivermos dados, inicializamos vazio para o app abrir
+        // Isso permite que o usuário vá em Configurações arrumar a URL
+        if (!this.dataLoaded) {
+            console.warn("Inicializando com dados vazios de contingência.");
+            this.processData({ users: [], products: [], movements: [], nes: [] }, true);
+            this.dataLoaded = true;
+        }
       } finally {
         this.fetchPromise = null;
       }
