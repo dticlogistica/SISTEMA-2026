@@ -732,7 +732,7 @@ const Settings: React.FC = () => {
                    <div className="bg-emerald-100 w-8 h-8 rounded-full flex items-center justify-center font-bold text-emerald-700 shrink-0 border border-emerald-200">5</div>
                    <div>
                      <h4 className="font-bold text-slate-800">Nome Profissional (Domínio)</h4>
-                     <p className="text-sm mt-1">Para tirar o ".vercel.app", na Vercel vá em <strong>Settings > Domains</strong>.</p>
+                     <p className="text-sm mt-1">Para tirar o ".vercel.app", na Vercel vá em <strong>Settings &gt; Domains</strong>.</p>
                      <p className="text-sm text-slate-600">Lá você pode editar o subdomínio grátis (ex: <code>minha-empresa.vercel.app</code>) ou adicionar um domínio comprado (ex: <code>www.minhaempresa.com.br</code>).</p>
                    </div>
                 </div>
