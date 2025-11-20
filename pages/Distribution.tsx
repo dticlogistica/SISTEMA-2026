@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { AlertCircle, CheckCircle, ShoppingCart, Printer, Trash2, ArrowUpFromLine, Package, User, UserCheck, Layers } from 'lucide-react';
@@ -28,9 +29,13 @@ const Distribution: React.FC = () => {
   const [receiptData, setReceiptData] = useState<any>(null); // For printable view
 
   useEffect(() => {
-    // Load products with their consolidated balances
-    inventoryService.getConsolidatedStock().then(setAvailableProducts);
-  }, [success]); // Reload when a distribution is successful to update stocks
+    const load = async () => {
+       setAvailableProducts(await inventoryService.getConsolidatedStock());
+    };
+    
+    load();
+    return inventoryService.subscribe(load);
+  }, [success]); // Reload when success triggers, but also when background sync happens
 
   // Helper to get current selected product stats
   const currentProductStats = availableProducts.find(p => p.name === selectedProduct);

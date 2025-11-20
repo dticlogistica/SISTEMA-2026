@@ -9,10 +9,54 @@ class InventoryService {
   private cachedNes: NotaEmpenho[] = [];
   
   private dataLoaded = false;
+  private fetchPromise: Promise<void> | null = null;
+  private listeners: (() => void)[] = [];
+  private lastFetchTime = 0;
+  
+  private readonly CACHE_KEY = 'almoxarifado_data_v1';
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+  constructor() {
+    this.loadFromLocalStorage();
+  }
+
+  // --- EVENT SUBSCRIPTION ---
+  public subscribe(listener: () => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  private notifyListeners() {
+    this.listeners.forEach(l => l());
+  }
+
+  // --- CACHE MANAGEMENT ---
+  private loadFromLocalStorage() {
+    try {
+      const stored = localStorage.getItem(this.CACHE_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        // Carrega os dados sem notificar ouvintes (pois é a carga inicial)
+        this.processData(data, false);
+        this.dataLoaded = true;
+      }
+    } catch (e) {
+      console.error("Erro ao carregar cache local:", e);
+    }
+  }
+
+  private saveToLocalStorage(data: any) {
+    try {
+      localStorage.setItem(this.CACHE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("Erro ao salvar cache local:", e);
+    }
+  }
 
   // --- API HELPERS ---
 
-  // Helper para pegar a URL correta (prioriza a salva no navegador)
   public getApiUrl(): string {
     const stored = localStorage.getItem('almoxarifado_api_url');
     if (stored && stored.trim().startsWith('http')) {
@@ -21,12 +65,10 @@ class InventoryService {
     return DEFAULT_API_URL;
   }
 
-  // Helper seguro para parsear números
   private parseNumber(val: any): number {
     if (val === null || val === undefined || val === '') return 0;
     if (typeof val === 'number') return val;
     if (typeof val === 'string') {
-      // Trata casos como "1.500,00" ou "10,5" substituindo vírgula por ponto se necessário
       const clean = val.replace(',', '.');
       const num = parseFloat(clean);
       return isNaN(num) ? 0 : num;
@@ -34,79 +76,107 @@ class InventoryService {
     return 0;
   }
 
-  private async fetchAllData() {
-    if (this.dataLoaded && this.cachedUsers.length > 0) return;
-
-    const url = this.getApiUrl();
+  private processData(data: any, notify: boolean = true) {
+    this.cachedUsers = (data.users || []).map((u: any) => ({
+      ...u,
+      active: u.active === true || u.active === "TRUE"
+    }));
     
-    if (!url || url.includes('COLE_SUA_URL_AQUI')) {
-      console.warn("API URL not configured");
+    this.cachedProducts = (data.products || []).map((p: any) => {
+      const initialQty = this.parseNumber(p.initialQty);
+      const currentBal = this.parseNumber(p.currentBalance);
+      const safeBalance = isNaN(currentBal) ? (isNaN(initialQty) ? 0 : initialQty) : currentBal;
+
+      return {
+        ...p,
+        currentBalance: safeBalance,
+        unitValue: this.parseNumber(p.unitValue),
+        initialQty: initialQty,
+        minStock: this.parseNumber(p.minStock)
+      };
+    });
+
+    this.cachedMovements = (data.movements || []).map((m: any) => ({
+      ...m,
+      quantity: this.parseNumber(m.quantity),
+      value: this.parseNumber(m.value),
+      isReversed: m.isReversed === true || m.isReversed === "TRUE"
+    }));
+
+    this.cachedNes = data.nes || [];
+    
+    if (notify) {
+      this.notifyListeners();
+    }
+  }
+
+  // Força uma atualização vinda do servidor
+  public async refreshData(): Promise<void> {
+    if (this.fetchPromise) return this.fetchPromise;
+
+    this.fetchPromise = (async () => {
+      try {
+        const url = this.getApiUrl();
+        if (!url || url.includes('COLE_SUA_URL_AQUI')) {
+          console.warn("API URL not configured");
+          return;
+        }
+
+        const response = await fetch(`${url}?action=getAll&t=${Date.now()}`, {
+          method: 'GET',
+          redirect: 'follow',
+          credentials: 'omit'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status}`);
+        }
+
+        const text = await response.text();
+        let data;
+        
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          if (text.trim().toLowerCase().startsWith("<!doctype html") || text.includes("<html")) {
+               throw new Error("ERRO DE PERMISSÃO: O Google retornou uma página de login.");
+          }
+          throw new Error("O servidor retornou dados inválidos.");
+        }
+        
+        if (data.error) throw new Error(data.error);
+
+        // Sucesso: Processa, Salva Cache e Notifica
+        this.processData(data, true);
+        this.saveToLocalStorage(data);
+        
+        this.dataLoaded = true;
+        this.lastFetchTime = Date.now();
+        
+      } catch (error) {
+        console.error("Refresh falhou:", error);
+        // Se não temos dados carregados (nem do cache), propagamos o erro
+        if (!this.dataLoaded) throw error;
+      } finally {
+        this.fetchPromise = null;
+      }
+    })();
+
+    return this.fetchPromise;
+  }
+
+  private async fetchAllData() {
+    // Se já temos dados (do cache ou memória), retornamos imediatamente (Optimistic UI)
+    if (this.dataLoaded) {
+      // Verificamos se o cache está muito antigo para fazer um refresh em background
+      if (Date.now() - this.lastFetchTime > this.CACHE_TTL) {
+        this.refreshData().catch(e => console.warn("Background refresh error:", e));
+      }
       return;
     }
 
-    try {
-      const response = await fetch(`${url}?action=getAll&t=${Date.now()}`, {
-        method: 'GET',
-        redirect: 'follow',
-        credentials: 'omit'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-
-      const text = await response.text();
-      let data;
-      
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.error("JSON Parse Error:", text.substring(0, 200));
-        if (text.trim().toLowerCase().startsWith("<!doctype html") || text.includes("<html")) {
-             throw new Error("ERRO DE PERMISSÃO: O Google retornou uma página de login. Verifique se a Implantação do Web App está como 'Qualquer pessoa' (Anyone).");
-        }
-        throw new Error("O servidor retornou dados inválidos.");
-      }
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      this.cachedUsers = (data.users || []).map((u: any) => ({
-        ...u,
-        active: u.active === true || u.active === "TRUE"
-      }));
-      
-      // Parser robusto para produtos
-      this.cachedProducts = (data.products || []).map((p: any) => {
-        const initialQty = this.parseNumber(p.initialQty);
-        const currentBal = this.parseNumber(p.currentBalance);
-        
-        // Se o currentBalance for NaN ou estranho, tenta usar o initialQty ou 0
-        const safeBalance = isNaN(currentBal) ? (isNaN(initialQty) ? 0 : initialQty) : currentBal;
-
-        return {
-          ...p,
-          currentBalance: safeBalance,
-          unitValue: this.parseNumber(p.unitValue),
-          initialQty: initialQty,
-          minStock: this.parseNumber(p.minStock)
-        };
-      });
-
-      this.cachedMovements = (data.movements || []).map((m: any) => ({
-        ...m,
-        quantity: this.parseNumber(m.quantity),
-        value: this.parseNumber(m.value),
-        isReversed: m.isReversed === true || m.isReversed === "TRUE"
-      }));
-
-      this.cachedNes = data.nes || [];
-      this.dataLoaded = true;
-    } catch (error) {
-      console.error("Erro detalhado no fetchAllData:", error);
-      console.warn("Falha na conexão com a planilha. Verifique o console.");
-    }
+    // Se não temos dados nenhum, precisamos esperar
+    await this.refreshData();
   }
 
   private async postData(action: string, payload: any): Promise<boolean> {
@@ -120,82 +190,60 @@ class InventoryService {
         method: 'POST',
         redirect: 'follow',
         credentials: 'omit',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action, payload })
       });
       
       const text = await response.text();
-      console.log("Resposta do servidor (Raw):", text.substring(0, 500));
-
       let result;
       try {
         result = JSON.parse(text);
       } catch (e) {
-        console.error("Erro de Parse JSON. Resposta recebida:", text);
-        if (text.includes("<html") || text.includes("<!DOCTYPE")) {
-             alert("ERRO DE PERMISSÃO: O sistema não conseguiu salvar pois o Google pediu login. \n\nSOLUÇÃO: No Apps Script, clique em Implantar > Nova Implantação, e em 'Quem pode acessar', selecione 'Qualquer pessoa'.");
+        if (text.includes("<html")) {
+             alert("ERRO DE PERMISSÃO: Google pediu login.");
         } else {
-             alert("Erro de comunicação: O servidor retornou uma resposta inválida. Verifique o console (F12).");
+             alert("Erro de comunicação com o servidor.");
         }
         return false;
       }
 
       if (result.success) {
-        this.dataLoaded = false; 
-        console.log("Operação realizada com sucesso!");
+        console.log("Operação realizada com sucesso! Atualizando dados...");
+        // Após escrita bem sucedida, forçamos atualização imediata
+        await this.refreshData(); 
         return true;
       } else {
-        console.error("API Error (Lógica):", result.error);
         alert(`Erro do Sistema: ${result.error}`);
         return false;
       }
     } catch (error) {
-      console.error("Network Error (Catch):", error);
-      alert("Erro de rede ao tentar salvar. Verifique sua conexão.");
+      console.error("Network Error:", error);
+      alert("Erro de rede ao tentar salvar.");
       return false;
     }
   }
 
-  // Método público para teste de conexão
   async testConnection(): Promise<{ success: boolean; message: string }> {
       try {
           const url = this.getApiUrl();
           if (!url || url.includes('COLE_SUA_URL_AQUI')) return { success: false, message: "URL da API não configurada." };
           
           const start = Date.now();
-          
-          const response = await fetch(`${url}?action=getAll&t=${start}`, {
-            method: 'GET',
-            redirect: 'follow',
-            credentials: 'omit'
-          });
-          
-          if (!response.ok) {
-            return { success: false, message: `Erro HTTP: ${response.status} ${response.statusText}` };
-          }
+          const response = await fetch(`${url}?action=getAll&t=${start}`, { method: 'GET', redirect: 'follow', credentials: 'omit' });
+          if (!response.ok) return { success: false, message: `Erro HTTP: ${response.status}` };
 
           const text = await response.text();
-          
-          if (text.includes("<html")) {
-              return { success: false, message: "ERRO DE PERMISSÃO: O Google retornou HTML (Login). Mude a permissão do script para 'Qualquer pessoa'." };
-          }
+          if (text.includes("<html")) return { success: false, message: "ERRO DE PERMISSÃO (HTML Login)." };
 
           try {
               const json = JSON.parse(text);
-              if (json.users) {
-                  return { success: true, message: `Conectado! Ping: ${Date.now() - start}ms. Usuários carregados: ${json.users.length}` };
-              } else {
-                  return { success: false, message: "Conectado, mas o formato do JSON parece incorreto." };
-              }
+              if (json.users) return { success: true, message: `Conectado! Ping: ${Date.now() - start}ms.` };
+              return { success: false, message: "JSON inválido." };
           } catch {
-               return { success: false, message: "Erro ao ler JSON. O servidor respondeu, mas não com dados válidos." };
+               return { success: false, message: "Erro ao ler JSON." };
           }
-
       } catch (e: any) {
-          console.error("Erro no Test Connection:", e);
-          return { success: false, message: `Erro de rede: ${e.message || 'Failed to fetch'}` };
+          return { success: false, message: `Erro de rede: ${e.message}` };
       }
   }
 
@@ -230,6 +278,8 @@ class InventoryService {
 
   private setCurrentUser(user: User) {
     localStorage.setItem('almoxarifado_user', user.email);
+    // Notifica listeners para atualizar UI (ex: avatar no menu)
+    this.notifyListeners();
   }
 
   async getUsers(): Promise<User[]> {
@@ -238,9 +288,7 @@ class InventoryService {
   }
 
   async saveUser(user: User): Promise<boolean> {
-    const success = await this.postData('saveUser', user);
-    if (success) await this.fetchAllData();
-    return success;
+    return await this.postData('saveUser', user);
   }
 
   async deleteUser(email: string): Promise<boolean> {
@@ -270,7 +318,6 @@ class InventoryService {
         const key = date.toLocaleString('pt-BR', { month: 'short' });
         monthlyData.set(key, (monthlyData.get(key) || 0) + m.value);
 
-        // Verifica se é do mês e ano atual
         if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
           currentMonthOutflow += m.value;
         }
@@ -361,8 +408,7 @@ class InventoryService {
       };
     });
 
-    const success = await this.postData('distribute', { movements: movementsData });
-    return success;
+    return await this.postData('distribute', { movements: movementsData });
   }
 
   async reverseMovement(movementId: string, userEmail: string): Promise<boolean> {
@@ -383,13 +429,11 @@ class InventoryService {
       isReversed: false
     };
 
-    const success = await this.postData('reverse', { movementId, reversalMovement });
-    return success;
+    return await this.postData('reverse', { movementId, reversalMovement });
   }
 
   async createNotaEmpenho(neData: { number: string, supplier: string, date: string }, items: any[]): Promise<boolean> {
     const timestamp = new Date().toISOString();
-
     const totalValue = items.reduce((acc, item) => acc + (item.initialQty * item.unitValue), 0);
     const newNE: NotaEmpenho = {
       id: neData.number,
@@ -404,7 +448,6 @@ class InventoryService {
 
     items.forEach((item, index) => {
       const productId = `P-${Date.now()}-${index}`;
-      
       const newProduct: Product = {
         id: productId,
         neId: neData.number,
@@ -435,13 +478,11 @@ class InventoryService {
       movementsPayload.push(newMovement);
     });
 
-    const success = await this.postData('createNE', { 
+    return await this.postData('createNE', { 
       ne: newNE, 
       items: productsPayload, 
       movements: movementsPayload 
     });
-
-    return success;
   }
 
   async getMovements(): Promise<Movement[]> {

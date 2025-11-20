@@ -15,7 +15,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    inventoryService.getCurrentUser().then(setCurrentUser);
+    // Função de carga inicial
+    const loadUser = async () => {
+      const user = await inventoryService.getCurrentUser();
+      setCurrentUser(user);
+    };
+    
+    loadUser();
+
+    // Inscrever para atualizações futuras (quando o cache for atualizado em background)
+    const unsubscribe = inventoryService.subscribe(() => {
+      loadUser();
+    });
+
+    return unsubscribe;
   }, []);
 
   // Permission Logic
@@ -74,12 +87,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
      
      // In a real app, this would be a logout/login. Here we call the service helper.
      const newUser = await inventoryService.switchUser(nextIdx);
+     // Subscription will handle state update, but switchUser updates local storage immediately
      setCurrentUser(newUser);
-     window.location.reload(); // Reload to apply permissions globally
   };
 
-  const handleRefresh = () => {
-    window.location.reload();
+  const handleRefresh = async () => {
+    // Trigger a background refresh
+    await inventoryService.refreshData();
   };
 
   return (

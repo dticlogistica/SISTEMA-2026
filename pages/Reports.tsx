@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { Movement, MovementType, User, UserRole } from '../types';
@@ -27,6 +28,7 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    return inventoryService.subscribe(loadData);
   }, []);
 
   useEffect(() => {
@@ -76,7 +78,8 @@ const Reports: React.FC = () => {
     const success = await inventoryService.reverseMovement(movementId, 'admin@sys.com');
     
     if (success) {
-      await loadData(); // Reload to show new REVERSAL movement and updated status
+      // Note: Subscription will auto-update the list when server responds successfully
+      // but we can also wait a bit or let the service handle it.
       alert('Estorno realizado com sucesso.');
     } else {
       alert('Erro ao realizar estorno.');

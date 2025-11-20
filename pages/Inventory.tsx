@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { Product } from '../types';
@@ -17,7 +18,12 @@ const Inventory: React.FC = () => {
   const [viewMode, setViewMode] = useState<'consolidated' | 'detailed'>('consolidated');
 
   useEffect(() => {
-    inventoryService.getProducts().then(setProducts);
+    const load = async () => {
+      setProducts(await inventoryService.getProducts());
+    };
+    
+    load();
+    return inventoryService.subscribe(load);
   }, []);
 
   const filteredProducts = products.filter(p => 
