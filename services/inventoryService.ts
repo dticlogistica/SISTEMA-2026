@@ -277,27 +277,42 @@ class InventoryService {
   async login(email: string, password: string): Promise<boolean> {
     await this.fetchAllData();
     
-    // Fallback para ADMIN INICIAL se não houver usuários cadastrados
-    if (this.cachedUsers.length === 0) {
-         // Aceita 'admin' (texto puro) ou 'admin@admin' (formato email)
-         if ((email === 'admin' || email === 'admin@admin') && password === 'admin') {
-            const tempAdmin = { email: 'admin@setup', name: 'Admin Temporário', role: UserRole.ADMIN, active: true };
-            this.setCurrentUser(tempAdmin);
-            return true;
-         }
-    }
-
-    const user = this.cachedUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.active);
+    const normalizedEmail = email.toLowerCase();
+    
+    // 1. Tenta encontrar o usuário no cache
+    const user = this.cachedUsers.find(u => u.email.toLowerCase() === normalizedEmail && u.active);
     
     if (user) {
-        // Verificação de senha (Simples, pois o backend é Sheets)
-        // Se o usuário não tiver senha cadastrada (legado), aceita qualquer coisa ou exige cadastro
-        if (user.password === password) {
+        // Lógica de Segurança:
+        // A) Se tiver senha salva, verifica a senha.
+        // B) Se NÃO tiver senha salva (campo undefined ou vazio), significa que o backend está desatualizado
+        //    ou o usuário foi criado antes da feature de senha. Nesse caso, PERMITE o login para evitar lockout.
+        if (!user.password || user.password === password) {
             this.setCurrentUser(user);
             return true;
         }
+        // Se tem senha e não bate, falha.
+        return false;
     }
-    
+
+    // 2. Fallback de Emergência / Setup
+    // Permite login como 'admin'/'admin' SE o usuário não existe no banco.
+    // Isso é vital para recuperação se o admin não se cadastrou corretamente.
+    if ((normalizedEmail === 'admin' || normalizedEmail === 'admin@admin') && password === 'admin') {
+        // Verifica se já existe UM usuário com esse email 'admin' ou 'admin@admin' cadastrado no sistema.
+        // Se existir, o fallback é bloqueado (deve-se usar a senha do usuário).
+        // Se NÃO existir, libera o acesso temporário de setup.
+        const adminUserExists = this.cachedUsers.some(u => 
+          u.email.toLowerCase() === 'admin' || u.email.toLowerCase() === 'admin@admin'
+        );
+
+        if (!adminUserExists) {
+             const tempAdmin = { email: 'admin@setup', name: 'Admin Temporário', role: UserRole.ADMIN, active: true };
+             this.setCurrentUser(tempAdmin);
+             return true;
+        }
+    }
+
     return false;
   }
   

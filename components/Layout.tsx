@@ -44,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Ordem Solicitada: Dashboard, Entrada, Distribuição, Estoque, Relatórios, Configurações
   const allNavItems = [
     { 
-      name: 'Dashboard', 
+      name: 'Painel de Gestão', 
       path: '/', 
       icon: <LayoutDashboard size={20} />, 
       roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR, UserRole.GUEST] 
@@ -216,7 +216,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
               <form onSubmit={handleLogin} className="space-y-4">
                 {loginError && (
-                  <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg text-center border border-red-100">
+                  <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg text-center border border-red-100 font-medium animate-pulse">
                     {loginError}
                   </div>
                 )}
@@ -230,7 +230,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-accent outline-none"
                     placeholder="admin ou seu@email.com"
                     value={loginEmail}
-                    onChange={e => setLoginEmail(e.target.value)}
+                    onChange={e => { setLoginEmail(e.target.value); setLoginError(''); }}
                   />
                 </div>
 
@@ -242,7 +242,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-accent outline-none"
                     placeholder="••••••"
                     value={loginPass}
-                    onChange={e => setLoginPass(e.target.value)}
+                    onChange={e => { setLoginPass(e.target.value); setLoginError(''); }}
                   />
                 </div>
 
