@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { inventoryService } from '../services/inventoryService';
-import { AlertCircle, CheckCircle, ShoppingCart, Printer, Trash2, ArrowUpFromLine, Package, User, UserCheck, Layers, Lock } from 'lucide-react';
+import { AlertCircle, CheckCircle, ShoppingCart, Printer, Trash2, ArrowUpFromLine, Package, User, UserCheck, Layers, Lock, Building2 } from 'lucide-react';
 import { UserRole, User as UserType } from '../types';
 
 interface CartItem {
@@ -46,7 +45,7 @@ const Distribution: React.FC = () => {
     
     load();
     return inventoryService.subscribe(load);
-  }, [success]); // Reload when success triggers, but also when background sync happens
+  }, [success]);
 
   // Access Control Check
   if (!pageLoading && currentUser && currentUser.role === UserRole.GUEST) {
@@ -60,7 +59,6 @@ const Distribution: React.FC = () => {
       );
   }
 
-  // Helper to get current selected product stats
   const currentProductStats = availableProducts.find(p => p.name === selectedProduct);
   const maxAvailable = currentProductStats?.totalBalance || 0;
   const isQuantityValid = quantity > 0 && quantity <= maxAvailable;
@@ -98,7 +96,6 @@ const Distribution: React.FC = () => {
     
     setLoading(true);
     try {
-        // Flatten all allocations
         const allMovements: { productId: string; neId: string; qty: number; unitValue: number }[] = [];
         cart.forEach(item => {
           item.allocations.forEach(alloc => allMovements.push(alloc));
@@ -107,9 +104,8 @@ const Distribution: React.FC = () => {
         const success = await inventoryService.executeDistribution(allMovements, currentUser?.email || 'user@email.com', observation);
         
         if (success) {
-          // Generate receipt ID in format DTIC - XXX/2026
           const randomNum = Math.floor(Math.random() * 999) + 1;
-          const receiptId = `DTIC - ${randomNum.toString().padStart(3, '0')}/2026`;
+          const receiptId = `REC-${randomNum.toString().padStart(4, '0')}/${new Date().getFullYear()}`;
 
           setReceiptData({
             id: receiptId,
@@ -118,7 +114,7 @@ const Distribution: React.FC = () => {
             totalValue: allMovements.reduce((sum, m) => sum + (m.qty * m.unitValue), 0),
             obs: observation,
             receiverName,
-            distributorName
+            distributorName: distributorName || currentUser?.name
           });
           setSuccess(true);
           setCart([]);
@@ -133,95 +129,150 @@ const Distribution: React.FC = () => {
     }
   };
 
+  // --- TELA DE RECIBO (A4) ---
   if (success && receiptData) {
     return (
-      <div className="max-w-3xl mx-auto animate-fade-in">
-        {/* Feedback Screen Header - Hidden on Print */}
-        <div className="text-center mb-6 print:hidden">
-          <div className="flex justify-center mb-2">
-            <CheckCircle className="text-emerald-500 h-12 w-12" />
+      <div className="flex flex-col items-center min-h-screen bg-slate-100 pb-12">
+        
+        {/* Feedback Header (Visível apenas na tela) */}
+        <div className="no-print w-full max-w-4xl mt-8 mb-6 text-center">
+          <div className="inline-flex items-center justify-center p-3 bg-emerald-100 rounded-full text-emerald-600 mb-4 shadow-sm">
+            <CheckCircle size={32} />
           </div>
-          <h2 className="text-xl font-bold text-slate-800">Distribuição Confirmada</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Distribuição Realizada!</h2>
+          <p className="text-slate-600">Imprima o recibo abaixo para arquivamento.</p>
+          
+          <div className="flex justify-center gap-4 mt-6">
+            <button 
+              onClick={() => window.print()} 
+              className="flex items-center gap-2 px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 shadow-lg transition-all"
+            >
+              <Printer size={20} /> Imprimir Recibo (A4)
+            </button>
+            <button 
+              onClick={() => { setSuccess(false); setReceiptData(null); }} 
+              className="px-6 py-3 border border-slate-300 bg-white rounded-lg hover:bg-slate-50 shadow-sm text-slate-700 font-medium transition-all"
+            >
+              Nova Distribuição
+            </button>
+          </div>
         </div>
 
-        {/* The Receipt Paper */}
-        <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-200 mb-6 print:shadow-none print:border-none print:p-0">
+        {/* A Folha A4 (Container Principal) */}
+        <div className="print:A4 bg-white shadow-2xl print:shadow-none w-[210mm] min-h-[297mm] p-[20mm] text-slate-900 box-border relative flex flex-col">
           
-          {/* Institutional Header */}
-          <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
-             <h1 className="font-bold text-base text-slate-900 uppercase tracking-wide">Diretoria de Tecnologia da Informação e Comunicação</h1>
-             <h2 className="font-bold text-base text-slate-900 uppercase tracking-wide">Seção Logística</h2>
-             <h3 className="font-bold text-sm text-slate-700 uppercase mt-1">Sistema de Controle Patrimonial - 2026</h3>
+          {/* Cabeçalho Institucional */}
+          <div className="flex items-center gap-6 border-b-2 border-black pb-6 mb-6">
+            <div className="w-20 h-20 flex items-center justify-center border-2 border-black rounded-lg bg-slate-50 print:bg-transparent">
+              <Building2 size={40} className="text-black" />
+            </div>
+            <div className="flex-1">
+               <h1 className="text-xl font-bold uppercase leading-tight">Governo do Estado</h1>
+               <h2 className="text-lg font-bold uppercase leading-tight">Diretoria de Tecnologia da Informação</h2>
+               <h3 className="text-sm font-semibold uppercase mt-1">Seção de Logística e Almoxarifado</h3>
+            </div>
+            <div className="text-right">
+               <div className="border border-black px-3 py-1 rounded">
+                 <p className="text-xs font-bold uppercase">Controle Nº</p>
+                 <p className="text-lg font-mono font-bold">{receiptData.id}</p>
+               </div>
+            </div>
           </div>
 
-          {/* Receipt Metadata */}
-          <div className="flex justify-between items-end mb-8 bg-slate-50 p-4 rounded border border-slate-100 print:bg-transparent print:border-none print:p-0">
-             <div>
-               <span className="block text-xs text-slate-500 uppercase font-semibold">Número do Recibo</span>
-               <span className="text-xl font-mono font-bold text-slate-900">{receiptData.id}</span>
+          {/* Título */}
+          <div className="text-center mb-8">
+            <h2 className="text-xl font-bold uppercase border bg-slate-100 print:bg-transparent border-black py-2 rounded">
+              Recibo de Entrega de Material
+            </h2>
+          </div>
+
+          {/* Dados da Transação */}
+          <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
+             <div className="border border-black p-3 rounded relative">
+                <span className="absolute -top-2 left-2 bg-white px-1 text-xs font-bold uppercase">Origem / Emissor</span>
+                <p><span className="font-semibold">Unidade:</span> Almoxarifado Central</p>
+                <p><span className="font-semibold">Responsável:</span> {receiptData.distributorName}</p>
+                <p><span className="font-semibold">Data de Emissão:</span> {receiptData.date}</p>
              </div>
-             <div className="text-right">
-               <span className="block text-xs text-slate-500 uppercase font-semibold">Data de Emissão</span>
-               <span className="text-base font-mono font-medium text-slate-900">{receiptData.date}</span>
+             <div className="border border-black p-3 rounded relative">
+                <span className="absolute -top-2 left-2 bg-white px-1 text-xs font-bold uppercase">Destinatário / Requisitante</span>
+                <p><span className="font-semibold">Nome:</span> {receiptData.receiverName || '___________________________'}</p>
+                <p><span className="font-semibold">Destino/Setor:</span> {receiptData.obs || '___________________________'}</p>
+                <p><span className="font-semibold">Status:</span> <span className="uppercase">Atendido</span></p>
              </div>
           </div>
-          
-          {/* Table */}
-          <div className="mb-8">
-            <h4 className="text-sm font-bold text-slate-700 uppercase border-b border-slate-400 mb-2 pb-1">Itens Distribuídos</h4>
-            <table className="w-full text-sm text-left">
+
+          {/* Tabela de Itens */}
+          <div className="flex-1">
+            <table className="w-full border-collapse border border-black text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 font-semibold">Produto</th>
-                  <th className="py-2 text-right font-semibold">Quantidade</th>
+                <tr className="bg-slate-100 print:bg-slate-200 text-black">
+                  <th className="border border-black px-2 py-1 w-12 text-center">#</th>
+                  <th className="border border-black px-2 py-1 text-left">Descrição do Material</th>
+                  <th className="border border-black px-2 py-1 w-24 text-center">Origem (NE)</th>
+                  <th className="border border-black px-2 py-1 w-20 text-right">Qtd</th>
+                  <th className="border border-black px-2 py-1 w-28 text-right">Vl. Total</th>
                 </tr>
               </thead>
               <tbody>
-                {receiptData.items.map((item: CartItem, idx: number) => (
-                  <tr key={idx} className="border-b border-slate-100 last:border-0">
-                    <td className="py-3 font-medium text-slate-800">{item.productName}</td>
-                    <td className="py-3 text-right font-mono text-slate-900">{item.requestedQty}</td>
+                {receiptData.items.map((item: CartItem, idx: number) => {
+                  const totalItemValue = item.allocations.reduce((acc, a) => acc + (a.qty * a.unitValue), 0);
+                  const nes = Array.from(new Set(item.allocations.map(a => a.neId))).join(', ');
+                  return (
+                    <tr key={idx}>
+                      <td className="border border-black px-2 py-1 text-center">{idx + 1}</td>
+                      <td className="border border-black px-2 py-1 font-semibold">{item.productName}</td>
+                      <td className="border border-black px-2 py-1 text-center text-xs">{nes}</td>
+                      <td className="border border-black px-2 py-1 text-right font-bold">{item.requestedQty}</td>
+                      <td className="border border-black px-2 py-1 text-right">R$ {totalItemValue.toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
+                {/* Linhas vazias para preencher visualmente se for pouco item */}
+                {Array.from({ length: Math.max(0, 10 - receiptData.items.length) }).map((_, i) => (
+                  <tr key={`empty-${i}`}>
+                    <td className="border border-black px-2 py-3"></td>
+                    <td className="border border-black px-2 py-3"></td>
+                    <td className="border border-black px-2 py-3"></td>
+                    <td className="border border-black px-2 py-3"></td>
+                    <td className="border border-black px-2 py-3"></td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-slate-100 print:bg-slate-200 font-bold">
+                   <td colSpan={3} className="border border-black px-2 py-1 text-right uppercase">Total Geral</td>
+                   <td className="border border-black px-2 py-1 text-right">{receiptData.items.reduce((acc: number, i: any) => acc + i.requestedQty, 0)}</td>
+                   <td className="border border-black px-2 py-1 text-right">R$ {receiptData.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
-          
-          {receiptData.obs && (
-            <div className="mb-8 text-sm bg-slate-50 p-3 rounded border border-slate-100 italic text-slate-600 print:bg-transparent print:border-slate-200">
-              <span className="font-bold not-italic">Observação/Destino:</span> {receiptData.obs}
-            </div>
-          )}
-          
-          {/* Signatures */}
-          <div className="mt-16 flex justify-between pt-8 gap-8 print:mt-24">
-             <div className="flex flex-col items-center flex-1">
-               <div className="border-t border-black w-full max-w-[220px] mb-2"></div>
-               <span className="font-bold text-sm uppercase text-center">{receiptData.distributorName || 'Responsável Logística'}</span>
-               <span className="text-[10px] text-slate-500 uppercase tracking-wider">Distribuidor</span>
-             </div>
-             <div className="flex flex-col items-center flex-1">
-               <div className="border-t border-black w-full max-w-[220px] mb-2"></div>
-               <span className="font-bold text-sm uppercase text-center">{receiptData.receiverName || 'Recebedor'}</span>
-               <span className="text-[10px] text-slate-500 uppercase tracking-wider">Assinatura do Recebedor</span>
+
+          {/* Termo e Assinaturas */}
+          <div className="mt-8 border border-black p-4 rounded">
+             <p className="text-xs text-justify mb-8 leading-relaxed">
+               DECLARO ter recebido os materiais constantes neste documento em perfeitas condições de uso e conservação, assumindo a responsabilidade pela sua guarda e utilização no serviço público, comprometendo-me a comunicar imediatamente qualquer irregularidade.
+             </p>
+
+             <div className="flex justify-between gap-8 mt-12 mb-4 px-4">
+                <div className="flex-1 text-center">
+                   <div className="border-t border-black mb-2"></div>
+                   <p className="font-bold uppercase text-sm">{receiptData.distributorName}</p>
+                   <p className="text-xs">Almoxarifado / Expedidor</p>
+                </div>
+                <div className="flex-1 text-center">
+                   <div className="border-t border-black mb-2"></div>
+                   <p className="font-bold uppercase text-sm">{receiptData.receiverName || '_____________________________'}</p>
+                   <p className="text-xs">Recebedor</p>
+                </div>
              </div>
           </div>
-        </div>
+          
+          <div className="mt-4 text-center text-[10px] text-slate-500">
+             Sistema DTIC-PRÓ - Emitido em {receiptData.date}
+          </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-center gap-4 print:hidden mb-8">
-          <button 
-            onClick={() => window.print()} 
-            className="flex items-center gap-2 px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 shadow-md transition-all"
-          >
-            <Printer size={18} /> Imprimir Recibo
-          </button>
-          <button 
-            onClick={() => { setSuccess(false); setReceiptData(null); }} 
-            className="px-6 py-2 border border-slate-300 bg-white rounded-lg hover:bg-slate-50 shadow-sm transition-all"
-          >
-            Nova Distribuição
-          </button>
         </div>
       </div>
     );
@@ -249,14 +300,13 @@ const Distribution: React.FC = () => {
                 value={selectedProduct}
                 onChange={e => {
                     setSelectedProduct(e.target.value);
-                    setQuantity(0); // Reset quantity when product changes
+                    setQuantity(0);
                 }}
               >
                 <option value="">Selecione...</option>
                 {availableProducts.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
               </select>
               
-              {/* Stock Indicator */}
               {selectedProduct && currentProductStats && (
                 <div className="mt-2 flex items-center gap-2 text-sm bg-blue-50 text-blue-700 p-2 rounded border border-blue-100 animate-fade-in">
                    <Layers size={16} />
@@ -402,8 +452,7 @@ const Distribution: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
-};
-
-export default Distribution;
+    );
+  };
+  
+  export default Distribution;
