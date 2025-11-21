@@ -6,11 +6,32 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* Configurações de Impressão A4 */
+/* --- Configuração de Folha A4 (Tela e Impressão) --- */
+
+.sheet-a4 {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm;
+  background-color: white;
+  margin: 0 auto;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Visualização em Tela */
+@media screen {
+  .sheet-a4 {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
+}
+
+/* Configurações Exclusivas de Impressão */
 @media print {
   @page {
     size: A4;
-    margin: 0; /* Remove margens do navegador para controlarmos via CSS */
+    margin: 0;
   }
 
   body {
@@ -20,27 +41,35 @@ body {
     -webkit-print-color-adjust: exact;
   }
 
-  /* Garante que o container ocupe a folha inteira */
-  .print\:A4 {
-    width: 210mm;
-    min-height: 297mm;
-    padding: 20mm;
-    margin: 0 auto;
-    background: white;
-    position: absolute;
-    top: 0;
-    left: 0;
-    font-size: 12pt; /* Tamanho de fonte legível para papel */
+  .sheet-a4 {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 20mm; /* Mantém margem interna segura */
+    box-shadow: none;
+    border: none;
   }
 
-  /* Esconde elementos que não devem sair no papel */
+  /* Esconde elementos de UI na impressão */
   .no-print, header, nav, aside, .sidebar {
     display: none !important;
   }
   
-  /* Força quebras de página se necessário */
-  .page-break {
-    page-break-before: always;
+  /* Classes utilitárias de impressão */
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:bg-transparent {
+    background-color: transparent !important;
+  }
+
+  .print\:shadow-none {
+    box-shadow: none !important;
   }
 }
 

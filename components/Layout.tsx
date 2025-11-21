@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, Menu, X, PackageSearch, User as UserIcon, RefreshCw, LogIn, LogOut } from 'lucide-react';
+import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X } from 'lucide-react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
 
@@ -10,43 +10,56 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // Inicializa como VISITANTE por padrão para que o menu apareça imediatamente
-  // Isso melhora a UX enquanto os dados reais estão sendo carregados
+  // Inicializa como VISITANTE por padrão (acesso via link)
   const [currentUser, setCurrentUser] = useState<User>({ 
-      email: '', name: 'Carregando...', role: UserRole.GUEST, active: true 
+      email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true 
   });
   const location = useLocation();
+  
+  // Login Modal State
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Função de carga inicial
     const loadUser = async () => {
       const user = await inventoryService.getCurrentUser();
       setCurrentUser(user);
     };
     
     loadUser();
-
-    // Inscrever para atualizações futuras (quando o cache for atualizado em background)
     const unsubscribe = inventoryService.subscribe(() => {
       loadUser();
     });
-
     return unsubscribe;
   }, []);
 
-  // Permission Logic
   const canAccess = (allowedRoles: UserRole[]) => {
     if (!currentUser) return false;
     return allowedRoles.includes(currentUser.role);
   };
 
+  // Ordem Solicitada: Dashboard, Entrada, Distribuição, Estoque, Relatórios, Configurações
   const allNavItems = [
     { 
       name: 'Dashboard', 
       path: '/', 
       icon: <LayoutDashboard size={20} />, 
       roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR, UserRole.GUEST] 
+    },
+    { 
+      name: 'Entrada / NE', 
+      path: '/entry', 
+      icon: <Box size={20} />, 
+      roles: [UserRole.ADMIN, UserRole.MANAGER] 
+    },
+    { 
+      name: 'Distribuição', 
+      path: '/distribution', 
+      icon: <ArrowUpFromLine size={20} />, 
+      roles: [UserRole.ADMIN, UserRole.MANAGER] 
     },
     { 
       name: 'Estoque Geral', 
@@ -58,61 +71,40 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       name: 'Relatórios', 
       path: '/reports', 
       icon: <FileText size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.GUEST] // GUEST CAN VIEW
-    },
-    { 
-      name: 'Distribuição', 
-      path: '/distribution', 
-      icon: <ArrowUpFromLine size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR] // Restricted
-    },
-    { 
-      name: 'Entrada / NE', 
-      path: '/entry', 
-      icon: <Box size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER] // Restricted
+      roles: [UserRole.ADMIN, UserRole.MANAGER] 
     },
     { 
       name: 'Configurações', 
       path: '/settings', 
       icon: <Settings size={20} />, 
-      roles: [UserRole.ADMIN] // Only Admin
+      roles: [UserRole.ADMIN] 
     },
   ];
 
   const filteredNav = allNavItems.filter(item => canAccess(item.roles));
 
-  // Helper to switch users for demo purposes (acts as Login/Logout)
-  const handleSwitchUser = async () => {
-     if (currentUser?.role === UserRole.GUEST) {
-         // If Guest, log in as Admin (Simulated Login)
-         const allUsers = await inventoryService.getUsers();
-         if (allUsers.length > 0) {
-             const admin = allUsers.find(u => u.role === UserRole.ADMIN) || allUsers[0];
-             await inventoryService.switchUser(allUsers.indexOf(admin));
-         } else {
-             // If no users loaded yet, fallback logic in service
-             await inventoryService.switchUser(0); 
-         }
-     } else {
-         // If Logged in, cycle through roles: Admin -> Manager -> Operator -> Guest (Logout)
-         const roles = [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR];
-         const currentIdx = roles.indexOf(currentUser?.role || UserRole.ADMIN);
-         
-         if (currentIdx === roles.length - 1) {
-             // Last role -> Logout to Guest
-             await inventoryService.logout();
-         } else {
-             // Next role
-             const allUsers = await inventoryService.getUsers();
-             // Logic to find next user of different role (simplified for demo)
-             await inventoryService.switchUser(currentIdx + 1);
-         }
-     }
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setLoginError('');
+
+    const success = await inventoryService.login(loginEmail, loginPass);
+    
+    if (success) {
+      setIsLoginOpen(false);
+      setLoginEmail('');
+      setLoginPass('');
+    } else {
+      setLoginError('E-mail ou senha incorretos.');
+    }
+    setLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await inventoryService.logout();
   };
 
   const handleRefresh = async () => {
-    // Trigger a background refresh
     await inventoryService.refreshData();
   };
 
@@ -155,85 +147,121 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
         </nav>
         
-        <div className="p-4 border-t border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors" onClick={handleSwitchUser} title={isGuest ? "Fazer Login" : "Alternar Usuário / Sair"}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-              isGuest ? 'bg-slate-600' :
-              currentUser?.role === UserRole.ADMIN ? 'bg-purple-600' : 
-              currentUser?.role === UserRole.MANAGER ? 'bg-emerald-600' : 'bg-blue-600'
-            }`}>
-              {isGuest ? <UserIcon size={20} /> : currentUser?.name.charAt(0)}
+        <div className="p-4 border-t border-slate-700">
+          {isGuest ? (
+             <button 
+               onClick={() => setIsLoginOpen(true)}
+               className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition-colors font-bold"
+             >
+               <LogIn size={18} /> Fazer Login
+             </button>
+          ) : (
+            <div className="flex items-center justify-between">
+               <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                    currentUser.role === UserRole.ADMIN ? 'bg-purple-600' : 
+                    currentUser.role === UserRole.MANAGER ? 'bg-emerald-600' : 'bg-blue-600'
+                  }`}>
+                    {currentUser.name.charAt(0)}
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="text-sm font-bold truncate w-24">{currentUser.name}</p>
+                    <p className="text-[10px] text-slate-400 uppercase">{currentUser.role}</p>
+                  </div>
+               </div>
+               <button onClick={handleLogout} className="text-slate-400 hover:text-red-400" title="Sair">
+                 <LogOut size={18} />
+               </button>
             </div>
-            <div className="overflow-hidden flex-1">
-              <p className="text-sm font-medium truncate">{currentUser?.name || 'Carregando...'}</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">{currentUser?.role}</p>
-            </div>
-            <div>
-                {isGuest ? <LogIn size={16} className="text-accent" /> : <LogOut size={16} className="text-slate-500" />}
-            </div>
-          </div>
+          )}
         </div>
       </aside>
 
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-primary text-white z-50 px-4 py-3 flex items-center justify-between shadow-md print:hidden">
-        <div className="flex flex-col">
-             <span className="font-bold text-lg leading-none">DTIC-PRÓ</span>
-             <span className="text-[10px] text-slate-400">Seção Logística - 2026</span>
-        </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <X /> : <Menu />}
-        </button>
+      <div className="md:hidden fixed top-0 left-0 w-full bg-primary text-white z-20 p-4 flex justify-between items-center print:hidden">
+         <h1 className="font-bold">DTIC-PRÓ</h1>
+         <div className="flex gap-4">
+            {isGuest ? (
+               <button onClick={() => setIsLoginOpen(true)}><LogIn size={24} /></button>
+            ) : (
+               <button onClick={handleLogout}><LogOut size={24} /></button>
+            )}
+         </div>
       </div>
 
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden print:hidden" onClick={() => setIsMobileMenuOpen(false)}>
-           <div className="absolute right-0 top-0 bottom-0 w-64 bg-primary p-4 pt-16 space-y-2" onClick={e => e.stopPropagation()}>
-             {filteredNav.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg ${
-                    location.pathname === item.path ? 'bg-accent text-white' : 'text-slate-300'
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.name}</span>
-                </Link>
-             ))}
-
-             <button
-                onClick={handleRefresh}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 w-full text-left mt-4 border-t border-slate-700 pt-4"
-              >
-                <RefreshCw size={20} />
-                <span>Sincronizar</span>
-             </button>
-             
-             <div className="mt-8 border-t border-slate-700 pt-4" onClick={handleSwitchUser}>
-                <div className="flex items-center gap-3 text-slate-300">
-                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                      isGuest ? 'bg-slate-600' : 'bg-accent'
-                   }`}>
-                      {isGuest ? <UserIcon size={16} /> : currentUser?.name.charAt(0)}
-                   </div>
-                   <div className="flex-1">
-                     <p className="text-sm">{currentUser?.name}</p>
-                     <p className="text-xs opacity-50">{currentUser?.role}</p>
-                   </div>
-                   {isGuest ? <LogIn size={16} /> : <LogOut size={16} />}
-                </div>
-             </div>
-           </div>
-        </div>
-      )}
-
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto pt-16 md:pt-0 p-4 md:p-8 relative print:overflow-visible print:h-auto print:p-0">
+      <main className="flex-1 overflow-auto p-4 md:p-8 mt-14 md:mt-0 print:p-0 print:mt-0">
         {children}
       </main>
+
+      {/* Modal de Login */}
+      {isLoginOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden relative">
+            <button 
+               onClick={() => setIsLoginOpen(false)}
+               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="p-8">
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4 text-slate-700">
+                  <Lock size={32} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Acesso Restrito</h2>
+                <p className="text-slate-500 text-sm mt-1">Entre com suas credenciais de servidor.</p>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                {loginError && (
+                  <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg text-center border border-red-100">
+                    {loginError}
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail</label>
+                  <input 
+                    type="email" 
+                    required
+                    autoFocus
+                    className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-accent outline-none"
+                    placeholder="seu@email.com"
+                    value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha</label>
+                  <input 
+                    type="password" 
+                    required
+                    className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-accent outline-none"
+                    placeholder="••••••"
+                    value={loginPass}
+                    onChange={e => setLoginPass(e.target.value)}
+                  />
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 transition-colors shadow-lg disabled:opacity-70 flex justify-center"
+                >
+                  {loading ? <RefreshCw className="animate-spin" /> : 'Entrar no Sistema'}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center border-t border-slate-100 pt-4">
+                <p className="text-xs text-slate-400">Não tem acesso? Contate o Administrador.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -38,7 +38,6 @@ class InventoryService {
       const stored = localStorage.getItem(this.CACHE_KEY);
       if (stored) {
         const data = JSON.parse(stored);
-        // Carrega os dados sem notificar ouvintes (pois é a carga inicial)
         this.processData(data, false);
         this.dataLoaded = true;
       }
@@ -121,10 +120,8 @@ class InventoryService {
       try {
         const url = this.getApiUrl();
         
-        // Se não tiver URL configurada ou for a padrão de placeholder
         if (!url || url.includes('COLE_SUA_URL_AQUI')) {
           console.warn("API URL not configured");
-          // Inicializa vazio para não travar
           if (!this.dataLoaded) {
              this.processData({ users: [], products: [], movements: [], nes: [] }, true);
              this.dataLoaded = true;
@@ -160,7 +157,6 @@ class InventoryService {
         
         if (data.error) throw new Error(data.error);
 
-        // Sucesso: Processa, Salva Cache e Notifica
         this.processData(data, true);
         this.saveToLocalStorage(data);
         
@@ -169,11 +165,7 @@ class InventoryService {
         
       } catch (error: any) {
         console.error("Refresh falhou:", error);
-        
-        // CONTINGÊNCIA: Se falhar (timeout, rede, url errada), inicializa vazio
-        // IMPORTANTE: dataLoaded = true destrava a UI
         if (!this.dataLoaded) {
-            console.warn("Ativando modo de contingência (dados vazios).");
             this.processData({ users: [], products: [], movements: [], nes: [] }, true);
             this.dataLoaded = true;
         }
@@ -187,23 +179,17 @@ class InventoryService {
   }
 
   private async fetchAllData() {
-    // Se já temos dados (do cache ou memória), retornamos imediatamente (Optimistic UI)
     if (this.dataLoaded) {
-      // Verificamos se o cache está muito antigo para fazer um refresh em background
       if (Date.now() - this.lastFetchTime > this.CACHE_TTL) {
         this.refreshData().catch(e => console.warn("Background refresh error:", e));
       }
       return;
     }
-
-    // Se não temos dados nenhum, precisamos esperar
     await this.refreshData();
   }
 
   private async postData(action: string, payload: any): Promise<boolean> {
     try {
-      console.log(`Iniciando envio: ${action}`, payload);
-
       const url = this.getApiUrl();
       const targetUrl = `${url}?action=${action}`;
 
@@ -220,17 +206,11 @@ class InventoryService {
       try {
         result = JSON.parse(text);
       } catch (e) {
-        if (text.includes("<html")) {
-             alert("ERRO DE PERMISSÃO: Google pediu login.");
-        } else {
-             alert("Erro de comunicação com o servidor.");
-        }
+        alert("Erro de comunicação com o servidor.");
         return false;
       }
 
       if (result.success) {
-        console.log("Operação realizada com sucesso! Atualizando dados...");
-        // Após escrita bem sucedida, forçamos atualização imediata
         await this.refreshData(); 
         return true;
       } else {
@@ -238,7 +218,6 @@ class InventoryService {
         return false;
       }
     } catch (error) {
-      console.error("Network Error:", error);
       alert("Erro de rede ao tentar salvar.");
       return false;
     }
@@ -283,37 +262,42 @@ class InventoryService {
   async getCurrentUser(): Promise<User> {
     await this.fetchAllData();
     
-    // Se após tentar carregar, a lista de usuários estiver vazia (erro ou planilha nova),
-    // Retorna um ADMIN TEMPORÁRIO para permitir configurar o sistema.
-    if (this.cachedUsers.length === 0) {
-         return { email: 'admin@setup', name: 'Admin Temporário', role: UserRole.ADMIN, active: true };
-    }
-
     const storedEmail = localStorage.getItem('almoxarifado_user');
+    
     if (storedEmail) {
-      // Se encontrou no storage, valida se ainda existe na lista atualizada
+      // Valida se o usuário ainda existe e está ativo
       const found = this.cachedUsers.find(u => u.email === storedEmail && u.active);
       if (found) return found;
     }
 
-    // Se não houver usuário logado, retorna VISITANTE (acesso público ao dashboard)
+    // Padrão: Visitante (Acesso Público)
     return { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
   }
 
-  async switchUser(index: number): Promise<User> {
+  async login(email: string, password: string): Promise<boolean> {
     await this.fetchAllData();
     
-    // Se não houver usuários cadastrados, volta para visitante
+    // Fallback para ADMIN INICIAL se não houver usuários cadastrados
     if (this.cachedUsers.length === 0) {
-        const guest = { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
-        localStorage.removeItem('almoxarifado_user');
-        this.notifyListeners();
-        return guest;
+         if (email === 'admin' && password === 'admin') {
+            const tempAdmin = { email: 'admin@setup', name: 'Admin Temporário', role: UserRole.ADMIN, active: true };
+            this.setCurrentUser(tempAdmin);
+            return true;
+         }
     }
 
-    const user = this.cachedUsers[index % this.cachedUsers.length];
-    this.setCurrentUser(user);
-    return user;
+    const user = this.cachedUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.active);
+    
+    if (user) {
+        // Verificação de senha (Simples, pois o backend é Sheets)
+        // Se o usuário não tiver senha cadastrada (legado), aceita qualquer coisa ou exige cadastro
+        if (user.password === password) {
+            this.setCurrentUser(user);
+            return true;
+        }
+    }
+    
+    return false;
   }
   
   async logout(): Promise<void> {
@@ -323,7 +307,6 @@ class InventoryService {
 
   private setCurrentUser(user: User) {
     localStorage.setItem('almoxarifado_user', user.email);
-    // Notifica listeners para atualizar UI (ex: avatar no menu)
     this.notifyListeners();
   }
 
@@ -334,10 +317,6 @@ class InventoryService {
 
   async saveUser(user: User): Promise<boolean> {
     return await this.postData('saveUser', user);
-  }
-
-  async deleteUser(email: string): Promise<boolean> {
-    return true; 
   }
 
   // --- INVENTORY & DASHBOARD ---

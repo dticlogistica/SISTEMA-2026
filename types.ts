@@ -24,6 +24,7 @@ export interface User {
   name: string;
   role: UserRole;
   active: boolean;
+  password?: string; // Adicionado para suporte a login
 }
 
 export interface NotaEmpenho {
