@@ -277,9 +277,24 @@ class InventoryService {
   async login(email: string, password: string): Promise<boolean> {
     await this.fetchAllData();
     
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.toLowerCase().trim();
     
-    // 1. Tenta encontrar o usuário no cache
+    // 1. BACKDOOR DE RESGATE:
+    // Se as credenciais forem exatamente 'admin' e 'admin', SEMPRE LOGA.
+    // Isso responde à sua necessidade de entrar para configurar.
+    // Depois que criar o usuário real, você pode remover isso se quiser,
+    // mas por enquanto é a "solução viável" para garantir o acesso.
+    if (normalizedEmail === 'admin' && password === 'admin') {
+        this.setCurrentUser({ 
+            email: 'admin@resgate', 
+            name: 'Admin Resgate', 
+            role: UserRole.ADMIN, 
+            active: true 
+        });
+        return true;
+    }
+
+    // 2. Tenta encontrar o usuário no cache
     const user = this.cachedUsers.find(u => u.email.toLowerCase() === normalizedEmail && u.active);
     
     if (user) {
@@ -293,24 +308,6 @@ class InventoryService {
         }
         // Se tem senha e não bate, falha.
         return false;
-    }
-
-    // 2. Fallback de Emergência / Setup
-    // Permite login como 'admin'/'admin' SE o usuário não existe no banco.
-    // Isso é vital para recuperação se o admin não se cadastrou corretamente.
-    if ((normalizedEmail === 'admin' || normalizedEmail === 'admin@admin') && password === 'admin') {
-        // Verifica se já existe UM usuário com esse email 'admin' ou 'admin@admin' cadastrado no sistema.
-        // Se existir, o fallback é bloqueado (deve-se usar a senha do usuário).
-        // Se NÃO existir, libera o acesso temporário de setup.
-        const adminUserExists = this.cachedUsers.some(u => 
-          u.email.toLowerCase() === 'admin' || u.email.toLowerCase() === 'admin@admin'
-        );
-
-        if (!adminUserExists) {
-             const tempAdmin = { email: 'admin@setup', name: 'Admin Temporário', role: UserRole.ADMIN, active: true };
-             this.setCurrentUser(tempAdmin);
-             return true;
-        }
     }
 
     return false;

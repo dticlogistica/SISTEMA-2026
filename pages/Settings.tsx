@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
-import { Users, UserPlus, Shield, Edit, Trash2, Check, X, HelpCircle, Globe, Github, Server, Activity, Database, Save, Copy, Key } from 'lucide-react';
+import { Users, UserPlus, Shield, Edit, Trash2, Check, X, HelpCircle, Globe, Github, Server, Activity, Database, Save, Copy, Key, AlertTriangle } from 'lucide-react';
 
 const BACKEND_CODE = `
 // ==================================================
@@ -251,17 +251,6 @@ const Settings: React.FC = () => {
     loadUsers();
   };
 
-  // Apenas ADMIN acessa esta página
-  if (!loading && currentUser?.role !== UserRole.ADMIN) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-400">
-        <Shield size={64} className="mb-4 opacity-20" />
-        <h2 className="text-2xl font-bold text-slate-600">Acesso Restrito</h2>
-        <p>Apenas administradores podem acessar as configurações.</p>
-      </div>
-    );
-  }
-
   const handleOpenUserModal = (user?: User) => {
     if (user) {
       setEditingUser(user);
@@ -308,6 +297,10 @@ const Settings: React.FC = () => {
     alert("Código copiado!");
   };
 
+  // REMOVIDO O BLOQUEIO RÍGIDO DE ACESSO
+  // A página agora exibe um alerta se for Visitante, mas permite o uso para recuperar o sistema.
+  const isGuest = currentUser?.role === UserRole.GUEST;
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
@@ -326,6 +319,16 @@ const Settings: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {isGuest && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3">
+          <AlertTriangle className="shrink-0 mt-1" />
+          <div>
+            <p className="font-bold">Modo de Recuperação</p>
+            <p className="text-sm mt-1">Você está acessando como Visitante. Use esta tela para conectar ao Google Sheets e criar seu primeiro usuário Administrador.</p>
+          </div>
+        </div>
+      )}
 
       {/* Painel de Conexão */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
@@ -391,24 +394,32 @@ const Settings: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {users.map(user => (
-              <tr key={user.email} className="hover:bg-slate-50 transition-colors">
-                <td className="p-4 font-medium text-slate-800">{user.name}</td>
-                <td className="p-4 text-slate-600 font-mono text-sm">{user.email}</td>
-                <td className="p-4 text-center text-sm font-bold uppercase">{user.role}</td>
-                <td className="p-4 text-center">
-                  {user.active ? <Check size={16} className="text-emerald-500 inline"/> : <X size={16} className="text-red-400 inline"/>}
-                </td>
-                <td className="p-4 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <button onClick={() => handleOpenUserModal(user)} className="p-2 text-slate-400 hover:text-accent"><Edit size={16} /></button>
-                    {user.email !== 'admin@sys.com' && (
-                       <button onClick={() => handleDelete(user.email)} className="p-2 text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {users.length === 0 ? (
+               <tr>
+                 <td colSpan={5} className="p-8 text-center text-slate-500">
+                   Nenhum usuário encontrado. Conecte ao banco de dados ou crie o primeiro usuário.
+                 </td>
+               </tr>
+            ) : (
+              users.map(user => (
+                <tr key={user.email} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4 font-medium text-slate-800">{user.name}</td>
+                  <td className="p-4 text-slate-600 font-mono text-sm">{user.email}</td>
+                  <td className="p-4 text-center text-sm font-bold uppercase">{user.role}</td>
+                  <td className="p-4 text-center">
+                    {user.active ? <Check size={16} className="text-emerald-500 inline"/> : <X size={16} className="text-red-400 inline"/>}
+                  </td>
+                  <td className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <button onClick={() => handleOpenUserModal(user)} className="p-2 text-slate-400 hover:text-accent"><Edit size={16} /></button>
+                      {user.email !== 'admin@sys.com' && (
+                         <button onClick={() => handleDelete(user.email)} className="p-2 text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -500,14 +511,20 @@ const Settings: React.FC = () => {
         </div>
       )}
       
-      {/* Modal Deploy (Mantido igual, oculto para economizar espaço no diff se não mudou lógica, mas precisa estar lá) */}
+      {/* Modal Deploy */}
       {isDeployModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-           {/* Conteúdo explicativo de deploy... (simplificado aqui, mas no código real mantém o que já existia) */}
            <div className="bg-white p-6 rounded-xl max-w-lg">
               <h3 className="font-bold text-lg mb-4">Como Publicar</h3>
-              <p className="mb-4">Siga as instruções no código fonte para fazer deploy na Vercel.</p>
-              <button onClick={() => setIsDeployModalOpen(false)} className="bg-slate-800 text-white px-4 py-2 rounded">Fechar</button>
+              <p className="mb-4 text-sm text-slate-600 leading-relaxed">
+                Este sistema utiliza o Google Sheets como banco de dados. <br/><br/>
+                1. Copie o código clicando em "Atualizar Backend" > Copiar.<br/>
+                2. Vá para o seu Google Sheets > Extensões > Apps Script.<br/>
+                3. Cole o código, salve e clique em Implantar > Nova Implantação.<br/>
+                4. Selecione tipo "Web App", execute como "Eu" e acesso "Qualquer pessoa".<br/>
+                5. Cole a URL gerada no campo acima e clique em Salvar.
+              </p>
+              <button onClick={() => setIsDeployModalOpen(false)} className="bg-slate-800 text-white px-4 py-2 rounded w-full">Entendi</button>
            </div>
         </div>
       )}
