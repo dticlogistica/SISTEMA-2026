@@ -1,11 +1,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { inventoryService } from '../services/inventoryService';
-import { Movement, MovementType, User, UserRole } from '../types';
-import { FileText, Filter, Download, ArrowDownCircle, ArrowUpCircle, Search, Printer, RotateCcw, RefreshCw, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Movement, MovementType, User, UserRole, Product } from '../types';
+import { FileText, Filter, Download, ArrowDownCircle, ArrowUpCircle, Search, Printer, RotateCcw, RefreshCw, Lock, ChevronLeft, ChevronRight, Package } from 'lucide-react';
 
 const Reports: React.FC = () => {
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [filteredMovements, setFilteredMovements] = useState<Movement[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,9 +26,16 @@ const Reports: React.FC = () => {
     try {
       const user = await inventoryService.getCurrentUser();
       setCurrentUser(user);
-      const data = await inventoryService.getMovements();
-      setMovements(data);
-      setFilteredMovements(data); 
+      
+      // Carrega movimentações e produtos para cruzar informações de saldo
+      const [movsData, prodsData] = await Promise.all([
+        inventoryService.getMovements(),
+        inventoryService.getProducts()
+      ]);
+
+      setMovements(movsData);
+      setProducts(prodsData);
+      setFilteredMovements(movsData); 
     } catch (e) {
       console.error(e);
     } finally {
@@ -67,18 +75,11 @@ const Reports: React.FC = () => {
     finally { setProcessingId(null); }
   };
 
-  // Access Logic: Guest CANNOT see reports
-  const isAllowed = currentUser && (currentUser.role !== UserRole.GUEST);
-
-  if (!loading && !isAllowed) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-400">
-        <Lock size={64} className="mb-4 opacity-20" />
-        <h2 className="text-2xl font-bold text-slate-600">Acesso Restrito</h2>
-        <p>Relatórios disponíveis apenas para servidores.</p>
-      </div>
-    );
-  }
+  // Helper para encontrar saldo
+  const getProductBalance = (productId: string) => {
+    const prod = products.find(p => p.id === productId);
+    return prod ? { balance: prod.currentBalance, unit: prod.unit } : null;
+  };
 
   const canUserReverse = currentUser && (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.MANAGER);
   const activeMovements = filteredMovements.filter(m => m.type !== MovementType.REVERSAL && !m.isReversed);
@@ -170,12 +171,22 @@ const Reports: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 print:divide-slate-200">
               {loading ? <tr><td colSpan={canUserReverse ? 8 : 7} className="p-8 text-center">Carregando...</td></tr> : currentData.length === 0 ? <tr><td colSpan={canUserReverse ? 8 : 7} className="p-8 text-center text-slate-400">Nenhum registro.</td></tr> : (
-                currentData.map((m) => (
+                currentData.map((m) => {
+                  const prodInfo = getProductBalance(m.productId);
+                  return (
                     <tr key={m.id} className={`transition-colors print:hover:bg-transparent ${m.isReversed ? 'bg-slate-50 opacity-60' : 'hover:bg-slate-50'}`}>
                       <td className="p-4 text-slate-600 whitespace-nowrap print:p-2">{new Date(m.date).toLocaleDateString('pt-BR')} <span className="text-xs text-slate-400 print:hidden">{new Date(m.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
                       <td className="p-4 text-center print:p-2"><span className={`px-2 py-1 rounded text-xs font-bold ${m.type === MovementType.ENTRY ? 'bg-emerald-100 text-emerald-700' : m.type === MovementType.EXIT ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'} print:bg-transparent print:border print:border-slate-300`}>{m.type}</span></td>
                       <td className="p-4 font-mono text-slate-600 print:p-2">{m.neId}</td>
-                      <td className="p-4 font-medium text-slate-800 print:p-2">{m.productName}</td>
+                      <td className="p-4 print:p-2">
+                        <div className="font-medium text-slate-800">{m.productName}</div>
+                        {prodInfo && (
+                           <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1" title="Saldo atual deste item nesta Nota de Empenho">
+                              <Package size={10} />
+                              <span>Saldo NE: <strong>{prodInfo.balance}</strong> {prodInfo.unit}</span>
+                           </div>
+                        )}
+                      </td>
                       <td className="p-4 text-right font-bold print:p-2">{m.quantity}</td>
                       <td className="p-4 text-right text-slate-600 print:p-2">R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="p-4 max-w-xs truncate print:p-2 print:whitespace-normal">
@@ -184,8 +195,8 @@ const Reports: React.FC = () => {
                       </td>
                       {canUserReverse && <td className="p-4 text-center print:hidden">{m.type === MovementType.EXIT && !m.isReversed && !((m.type as any) === 'ESTORNO') && <button onClick={() => handleReverse(m.id)} disabled={processingId === m.id} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full" title="Estornar">{processingId === m.id ? <RefreshCw size={16} className="animate-spin" /> : <RotateCcw size={16} />}</button>}</td>}
                     </tr>
-                  )
-                )
+                  );
+                })
               )}
             </tbody>
           </table>

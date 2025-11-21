@@ -260,13 +260,20 @@ class InventoryService {
   // --- USER MANAGEMENT ---
 
   async getCurrentUser(): Promise<User> {
-    await this.fetchAllData();
-    
     const storedEmail = localStorage.getItem('almoxarifado_user');
 
-    // CORREÇÃO CRÍTICA:
-    // Se o usuário logado for o 'admin@resgate', retorná-lo IMEDIATAMENTE.
-    // Não validar contra cachedUsers, pois ele não existe no banco de dados.
+    // CORREÇÃO: Retorna VISITANTE imediatamente se não houver usuário no storage.
+    // Evita chamadas de rede desnecessárias e bloqueios para quem acessa via link.
+    if (!storedEmail) {
+        return { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
+    }
+    
+    // Se existe um email salvo, tenta validar e atualizar os dados
+    if (!this.dataLoaded) {
+         await this.fetchAllData();
+    }
+
+    // CORREÇÃO CRÍTICA: Admin de Resgate
     if (storedEmail === 'admin@resgate') {
          return { 
             email: 'admin@resgate', 
@@ -276,13 +283,11 @@ class InventoryService {
         };
     }
     
-    if (storedEmail) {
-      // Valida se o usuário ainda existe e está ativo no banco
-      const found = this.cachedUsers.find(u => u.email === storedEmail && u.active);
-      if (found) return found;
-    }
+    // Valida se o usuário ainda existe e está ativo no banco
+    const found = this.cachedUsers.find(u => u.email === storedEmail && u.active);
+    if (found) return found;
 
-    // Padrão: Visitante (Acesso Público)
+    // Fallback se o usuário salvo não for encontrado ou estiver inativo
     return { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
   }
 

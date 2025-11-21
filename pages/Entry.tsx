@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { inventoryService } from '../services/inventoryService';
-import { Plus, Trash2, Save, PackagePlus, CheckCircle, Lock } from 'lucide-react';
+import { Plus, Trash2, Save, PackagePlus, CheckCircle, Info } from 'lucide-react';
 import { User, UserRole } from '../types';
 
 interface NewItem {
@@ -50,18 +50,8 @@ const Entry: React.FC = () => {
     load();
   }, []);
 
-  // Access Control: Apenas ADMIN e GESTOR
-  const isAllowed = currentUser && (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.MANAGER);
-
-  if (!pageLoading && !isAllowed) {
-    return (
-       <div className="flex flex-col items-center justify-center h-96 text-slate-400">
-         <Lock size={64} className="mb-4 opacity-20" />
-         <h2 className="text-2xl font-bold text-slate-600">Acesso Restrito</h2>
-         <p>Esta função é exclusiva para servidores logados (Admin/Gestor).</p>
-       </div>
-    );
-  }
+  // Access Logic: Read-Only for Guest
+  const isGuest = currentUser?.role === UserRole.GUEST;
 
   const handleAddItem = () => {
     if (!currentItem.name || currentItem.initialQty <= 0 || currentItem.unitValue <= 0) return;
@@ -76,7 +66,7 @@ const Entry: React.FC = () => {
   };
 
   const handleSaveNE = async () => {
-    if (!neNumber || !supplier || itemsList.length === 0) return;
+    if (!neNumber || !supplier || itemsList.length === 0 || isGuest) return;
     setLoading(true);
     try {
         const success = await inventoryService.createNotaEmpenho(
@@ -105,6 +95,12 @@ const Entry: React.FC = () => {
         <p className="text-slate-500 mt-2">Cadastro de NE e inclusão de novos materiais ao estoque.</p>
       </div>
 
+      {isGuest && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-lg flex items-center gap-3">
+          <Info /> <span className="font-medium">Modo Visualização: Faça login para registrar novas entradas.</span>
+        </div>
+      )}
+
       {successMsg && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-lg flex items-center gap-3 animate-fade-in">
           <CheckCircle /> <span className="font-medium">{successMsg}</span>
@@ -118,15 +114,15 @@ const Entry: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Número da NE</label>
-                <input type="text" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none uppercase" value={neNumber} onChange={e => setNeNumber(e.target.value)} />
+                <input type="text" disabled={isGuest} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none uppercase disabled:opacity-60" value={neNumber} onChange={e => setNeNumber(e.target.value)} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Fornecedor</label>
-                <input type="text" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" value={supplier} onChange={e => setSupplier(e.target.value)} />
+                <input type="text" disabled={isGuest} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60" value={supplier} onChange={e => setSupplier(e.target.value)} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Data de Emissão</label>
-                <input type="date" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" value={neDate} onChange={e => setNeDate(e.target.value)} />
+                <input type="date" disabled={isGuest} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60" value={neDate} onChange={e => setNeDate(e.target.value)} />
               </div>
             </div>
           </div>
@@ -134,8 +130,8 @@ const Entry: React.FC = () => {
             <p className="text-sm text-slate-400 mb-1">Valor Total da NE</p>
             <p className="text-3xl font-bold font-mono">R$ {totalValueNE.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             <p className="text-xs text-slate-400 mt-2">{itemsList.length} itens adicionados</p>
-            <button onClick={handleSaveNE} disabled={loading || !neNumber || itemsList.length === 0} className="mt-6 w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg flex justify-center items-center gap-2 disabled:opacity-50">
-              {loading ? 'Salvando...' : <><Save size={18} /> Salvar e Confirmar</>}
+            <button onClick={handleSaveNE} disabled={loading || !neNumber || itemsList.length === 0 || isGuest} className="mt-6 w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              {loading ? 'Salvando...' : isGuest ? 'Login Necessário' : <><Save size={18} /> Salvar e Confirmar</>}
             </button>
           </div>
         </div>
@@ -146,29 +142,29 @@ const Entry: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
-                <input type="text" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" value={currentItem.name} onChange={e => setCurrentItem({...currentItem, name: e.target.value})} />
+                <input type="text" disabled={isGuest} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60" value={currentItem.name} onChange={e => setCurrentItem({...currentItem, name: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Unidade</label>
-                <select className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" value={currentItem.unit} onChange={e => setCurrentItem({...currentItem, unit: e.target.value})}>
+                <select disabled={isGuest} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60" value={currentItem.unit} onChange={e => setCurrentItem({...currentItem, unit: e.target.value})}>
                   <option value="UN">UN</option><option value="CX">CX</option><option value="PCT">PCT</option><option value="KG">KG</option><option value="L">L</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Qtd (Unidades)</label>
-                <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" value={currentItem.initialQty} onChange={e => setCurrentItem({...currentItem, initialQty: parseFloat(e.target.value)})} />
+                <input type="number" disabled={isGuest} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60" value={currentItem.initialQty} onChange={e => setCurrentItem({...currentItem, initialQty: parseFloat(e.target.value)})} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Valor Unit. (R$)</label>
-                <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" value={currentItem.unitValue} onChange={e => setCurrentItem({...currentItem, unitValue: parseFloat(e.target.value)})} />
+                <input type="number" disabled={isGuest} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60" value={currentItem.unitValue} onChange={e => setCurrentItem({...currentItem, unitValue: parseFloat(e.target.value)})} />
               </div>
                <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Estoque Mín.</label>
-                <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" value={currentItem.minStock} onChange={e => setCurrentItem({...currentItem, minStock: parseFloat(e.target.value)})} />
+                <input type="number" disabled={isGuest} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60" value={currentItem.minStock} onChange={e => setCurrentItem({...currentItem, minStock: parseFloat(e.target.value)})} />
               </div>
             </div>
             <div className="flex justify-end">
-              <button onClick={handleAddItem} disabled={!currentItem.name || currentItem.initialQty <= 0} className="px-6 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50">Incluir</button>
+              <button onClick={handleAddItem} disabled={!currentItem.name || currentItem.initialQty <= 0 || isGuest} className="px-6 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">Incluir</button>
             </div>
           </div>
 
@@ -188,7 +184,7 @@ const Entry: React.FC = () => {
                       <td className="p-3 text-slate-800 font-medium">{item.name}</td>
                       <td className="p-3 text-right">{item.initialQty}</td>
                       <td className="p-3 text-right font-bold">R$ {(item.initialQty * item.unitValue).toFixed(2)}</td>
-                      <td className="p-3 text-center"><button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button></td>
+                      <td className="p-3 text-center"><button onClick={() => handleRemoveItem(idx)} disabled={isGuest} className="text-red-400 hover:text-red-600 disabled:opacity-50"><Trash2 size={16} /></button></td>
                     </tr>
                   ))}
                 </tbody>

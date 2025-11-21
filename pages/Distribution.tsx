@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { inventoryService } from '../services/inventoryService';
-import { AlertCircle, CheckCircle, ShoppingCart, Printer, Trash2, ArrowUpFromLine, Package, UserCheck, Layers, Lock, Building2, User as UserIcon } from 'lucide-react';
+import { AlertCircle, CheckCircle, ShoppingCart, Printer, Trash2, ArrowUpFromLine, Package, UserCheck, Layers, Info, Building2, User as UserIcon } from 'lucide-react';
 import { UserRole, User as UserType } from '../types';
 
 interface CartItem {
@@ -47,18 +47,8 @@ const Distribution: React.FC = () => {
     return inventoryService.subscribe(load);
   }, [success]);
 
-  // Access Control: Admin, Manager, Operator
-  const isAllowed = currentUser && (currentUser.role !== UserRole.GUEST);
-
-  if (!pageLoading && !isAllowed) {
-      return (
-         <div className="flex flex-col items-center justify-center h-96 text-slate-400">
-           <Lock size={64} className="mb-4 opacity-20" />
-           <h2 className="text-2xl font-bold text-slate-600">Acesso Restrito</h2>
-           <p>Você precisa estar logado para realizar distribuições de material.</p>
-         </div>
-      );
-  }
+  // Access Logic: Read-Only for Guest
+  const isGuest = currentUser?.role === UserRole.GUEST;
 
   const currentProductStats = availableProducts.find(p => p.name === selectedProduct);
   const maxAvailable = currentProductStats?.totalBalance || 0;
@@ -86,7 +76,7 @@ const Distribution: React.FC = () => {
   };
 
   const handleFinalize = async () => {
-    if (cart.length === 0 || cart.some(c => !c.isPossible)) return;
+    if (cart.length === 0 || cart.some(c => !c.isPossible) || isGuest) return;
     setLoading(true);
     try {
         const allMovements: any[] = [];
@@ -203,6 +193,13 @@ const Distribution: React.FC = () => {
         <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3"><ArrowUpFromLine className="text-accent" /> Distribuição de Material</h2>
         <p className="text-slate-500 mt-2">Saída de material por FIFO.</p>
       </header>
+
+      {isGuest && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-lg flex items-center gap-3">
+          <Info /> <span className="font-medium">Modo Simulação: Faça login para confirmar a distribuição.</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
           <h3 className="font-bold text-lg mb-4 text-slate-700">Adicionar Produto</h3>
@@ -259,7 +256,9 @@ const Distribution: React.FC = () => {
             <input type="text" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg mb-4" placeholder="Destino..." value={observation} onChange={e => setObservation(e.target.value)} />
             <div className="flex justify-end gap-4">
               <button onClick={() => setCart([])} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Limpar</button>
-              <button onClick={handleFinalize} disabled={loading || cart.length === 0 || cart.some(c => !c.isPossible)} className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"><CheckCircle size={18} /> Confirmar</button>
+              <button onClick={handleFinalize} disabled={loading || cart.length === 0 || cart.some(c => !c.isPossible) || isGuest} className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                {isGuest ? 'Login Necessário' : <><CheckCircle size={18} /> Confirmar</>}
+              </button>
             </div>
           </div>
         </div>
