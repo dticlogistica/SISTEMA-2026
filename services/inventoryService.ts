@@ -165,7 +165,9 @@ class InventoryService {
         
       } catch (error: any) {
         console.error("Refresh falhou:", error);
+        // Se falhar o refresh mas já tivermos dados (mesmo que antigos), mantemos os dados
         if (!this.dataLoaded) {
+            // Se nunca carregou nada, inicializa vazio para não quebrar a UI
             this.processData({ users: [], products: [], movements: [], nes: [] }, true);
             this.dataLoaded = true;
         }
@@ -262,19 +264,17 @@ class InventoryService {
   async getCurrentUser(): Promise<User> {
     const storedEmail = localStorage.getItem('almoxarifado_user');
 
-    // CORREÇÃO: Retorna VISITANTE imediatamente se não houver usuário no storage.
-    // Evita chamadas de rede desnecessárias e bloqueios para quem acessa via link.
+    // 1. Se não tem nada no storage, é visitante IMEDIATAMENTE.
     if (!storedEmail) {
         return { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
     }
-    
-    // Se existe um email salvo, tenta validar e atualizar os dados
-    if (!this.dataLoaded) {
-         await this.fetchAllData();
-    }
 
-    // CORREÇÃO CRÍTICA: Admin de Resgate
+    // 2. PRIORIDADE MÁXIMA: Se for Admin Resgate, retorna IMEDIATAMENTE, ignorando rede.
+    // Isso garante acesso às configurações mesmo sem internet.
     if (storedEmail === 'admin@resgate') {
+         // Dispara atualização em background sem travar a UI
+         if (!this.dataLoaded) this.refreshData().catch(console.error);
+         
          return { 
             email: 'admin@resgate', 
             name: 'Admin Resgate', 
@@ -283,21 +283,29 @@ class InventoryService {
         };
     }
     
-    // Valida se o usuário ainda existe e está ativo no banco
+    // 3. Se for um usuário normal, precisamos validar.
+    // Tenta buscar dados, mas se falhar, não trava: cai para cache ou visitante.
+    if (!this.dataLoaded) {
+         try {
+            await this.fetchAllData();
+         } catch (e) {
+            console.warn("Falha ao atualizar dados no login, tentando cache...", e);
+         }
+    }
+    
+    // 4. Valida se o usuário ainda existe e está ativo no banco (ou cache)
     const found = this.cachedUsers.find(u => u.email === storedEmail && u.active);
     if (found) return found;
 
-    // Fallback se o usuário salvo não for encontrado ou estiver inativo
+    // 5. Fallback FINAL: Se o usuário salvo não for encontrado ou a rede falhou totalmente,
+    // retorna VISITANTE para permitir o acesso e não travar na tela de loading.
     return { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
   }
 
   async login(email: string, password: string): Promise<boolean> {
-    // Força atualização antes de tentar logar para ter dados frescos
-    await this.refreshData();
-    
     const normalizedEmail = email.toLowerCase().trim();
     
-    // 1. BACKDOOR DE RESGATE:
+    // 1. BACKDOOR DE RESGATE (Funciona Offline)
     if (normalizedEmail === 'admin' && password === 'admin') {
         this.setCurrentUser({ 
             email: 'admin@resgate', 
@@ -308,11 +316,17 @@ class InventoryService {
         return true;
     }
 
-    // 2. Tenta encontrar o usuário no cache
+    // Força atualização antes de tentar logar usuários normais
+    try {
+        await this.refreshData();
+    } catch (e) {
+        console.error("Erro de rede no login", e);
+    }
+
+    // 2. Tenta encontrar o usuário no cache atualizado
     const user = this.cachedUsers.find(u => u.email.toLowerCase() === normalizedEmail && u.active);
     
     if (user) {
-        // Lógica de Segurança:
         if (!user.password || user.password === password) {
             this.setCurrentUser(user);
             return true;
@@ -325,6 +339,7 @@ class InventoryService {
   
   async logout(): Promise<void> {
     localStorage.removeItem('almoxarifado_user');
+    // Ao fazer logout, forçamos o estado para Visitante
     this.notifyListeners();
   }
 
