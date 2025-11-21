@@ -300,6 +300,8 @@ const Settings: React.FC = () => {
   // REMOVIDO O BLOQUEIO RÍGIDO DE ACESSO
   // A página agora exibe um alerta se for Visitante, mas permite o uso para recuperar o sistema.
   const isGuest = currentUser?.role === UserRole.GUEST;
+  // Verifica se é o admin de resgate
+  const isRescueAdmin = currentUser?.email === 'admin@resgate';
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -321,11 +323,21 @@ const Settings: React.FC = () => {
       </div>
 
       {isGuest && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3 animate-pulse">
           <AlertTriangle className="shrink-0 mt-1" />
           <div>
-            <p className="font-bold">Modo de Recuperação</p>
-            <p className="text-sm mt-1">Você está acessando como Visitante. Use esta tela para conectar ao Google Sheets e criar seu primeiro usuário Administrador.</p>
+            <p className="font-bold">Modo Visitante</p>
+            <p className="text-sm mt-1">Você não está logado. Para configurar o sistema pela primeira vez, use o login <strong>admin</strong> e senha <strong>admin</strong>.</p>
+          </div>
+        </div>
+      )}
+
+      {isRescueAdmin && (
+        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-start gap-3">
+          <Shield className="shrink-0 mt-1" />
+          <div>
+            <p className="font-bold">Modo de Recuperação Ativo</p>
+            <p className="text-sm mt-1">Você está logado com a conta de emergência. Cadastre um administrador real abaixo para garantir o acesso futuro.</p>
           </div>
         </div>
       )}
@@ -518,9 +530,9 @@ const Settings: React.FC = () => {
               <h3 className="font-bold text-lg mb-4">Como Publicar</h3>
               <p className="mb-4 text-sm text-slate-600 leading-relaxed">
                 Este sistema utiliza o Google Sheets como banco de dados. <br/><br/>
-                1. Copie o código clicando em "Atualizar Backend" > Copiar.<br/>
-                2. Vá para o seu Google Sheets > Extensões > Apps Script.<br/>
-                3. Cole o código, salve e clique em Implantar > Nova Implantação.<br/>
+                1. Copie o código clicando em "Atualizar Backend" &gt; Copiar.<br/>
+                2. Vá para o seu Google Sheets &gt; Extensões &gt; Apps Script.<br/>
+                3. Cole o código, salve e clique em Implantar &gt; Nova Implantação.<br/>
                 4. Selecione tipo "Web App", execute como "Eu" e acesso "Qualquer pessoa".<br/>
                 5. Cole a URL gerada no campo acima e clique em Salvar.
               </p>

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { Movement, MovementType, User, UserRole } from '../types';
-import { FileText, Filter, Download, ArrowDownCircle, ArrowUpCircle, Search, Printer, RotateCcw, RefreshCw, Lock } from 'lucide-react';
+import { FileText, Filter, Download, ArrowDownCircle, ArrowUpCircle, Search, Printer, RotateCcw, RefreshCw, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Reports: React.FC = () => {
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -16,6 +16,10 @@ const Reports: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'ALL' | MovementType>('ALL');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const loadData = async () => {
     try {
@@ -50,6 +54,7 @@ const Reports: React.FC = () => {
        result = result.filter(m => new Date(m.date) <= end);
     }
     setFilteredMovements(result);
+    setCurrentPage(1); // Reset pagination on filter change
   }, [search, typeFilter, dateStart, dateEnd, movements]);
 
   const handleReverse = async (movementId: string) => {
@@ -79,6 +84,11 @@ const Reports: React.FC = () => {
   const activeMovements = filteredMovements.filter(m => m.type !== MovementType.REVERSAL && !m.isReversed);
   const totalEntry = activeMovements.filter(m => m.type === MovementType.ENTRY).reduce((acc, m) => acc + m.value, 0);
   const totalExit = activeMovements.filter(m => m.type === MovementType.EXIT).reduce((acc, m) => acc + m.value, 0);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredMovements.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentData = filteredMovements.slice(startIndex, startIndex + itemsPerPage);
 
   if (loading) return <div className="p-8 text-center text-slate-500">Carregando relatórios...</div>;
 
@@ -159,8 +169,8 @@ const Reports: React.FC = () => {
               <tr><th className="p-4 print:p-2">Data / Hora</th><th className="p-4 text-center print:p-2">Tipo</th><th className="p-4 print:p-2">NE Ref.</th><th className="p-4 print:p-2">Produto</th><th className="p-4 text-right print:p-2">Qtd</th><th className="p-4 text-right print:p-2">Valor Total</th><th className="p-4 print:p-2">Usuário / Obs</th>{canUserReverse && <th className="p-4 text-center print:hidden">Ações</th>}</tr>
             </thead>
             <tbody className="divide-y divide-slate-100 print:divide-slate-200">
-              {loading ? <tr><td colSpan={canUserReverse ? 8 : 7} className="p-8 text-center">Carregando...</td></tr> : filteredMovements.length === 0 ? <tr><td colSpan={canUserReverse ? 8 : 7} className="p-8 text-center text-slate-400">Nenhum registro.</td></tr> : (
-                filteredMovements.map((m) => (
+              {loading ? <tr><td colSpan={canUserReverse ? 8 : 7} className="p-8 text-center">Carregando...</td></tr> : currentData.length === 0 ? <tr><td colSpan={canUserReverse ? 8 : 7} className="p-8 text-center text-slate-400">Nenhum registro.</td></tr> : (
+                currentData.map((m) => (
                     <tr key={m.id} className={`transition-colors print:hover:bg-transparent ${m.isReversed ? 'bg-slate-50 opacity-60' : 'hover:bg-slate-50'}`}>
                       <td className="p-4 text-slate-600 whitespace-nowrap print:p-2">{new Date(m.date).toLocaleDateString('pt-BR')} <span className="text-xs text-slate-400 print:hidden">{new Date(m.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
                       <td className="p-4 text-center print:p-2"><span className={`px-2 py-1 rounded text-xs font-bold ${m.type === MovementType.ENTRY ? 'bg-emerald-100 text-emerald-700' : m.type === MovementType.EXIT ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'} print:bg-transparent print:border print:border-slate-300`}>{m.type}</span></td>
@@ -179,6 +189,44 @@ const Reports: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+        
+        {/* Pagination Controls */}
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center print:hidden">
+            <div className="text-sm text-slate-500">
+                Exibindo {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredMovements.length)} de {filteredMovements.length} registros
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="mr-4">
+                    <select 
+                        value={itemsPerPage} 
+                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                        className="bg-white border border-slate-300 rounded px-2 py-1 text-sm outline-none"
+                    >
+                        <option value={20}>20 por página</option>
+                        <option value={50}>50 por página</option>
+                        <option value={100}>100 por página</option>
+                        <option value={999999}>Todos</option>
+                    </select>
+                </div>
+                <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                    <ChevronLeft size={20} />
+                </button>
+                <span className="text-sm font-medium px-2">
+                    Página {currentPage} de {Math.max(1, totalPages)}
+                </span>
+                <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="p-2 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                    <ChevronRight size={20} />
+                </button>
+            </div>
         </div>
       </div>
     </div>

@@ -263,9 +263,21 @@ class InventoryService {
     await this.fetchAllData();
     
     const storedEmail = localStorage.getItem('almoxarifado_user');
+
+    // CORREÇÃO CRÍTICA:
+    // Se o usuário logado for o 'admin@resgate', retorná-lo IMEDIATAMENTE.
+    // Não validar contra cachedUsers, pois ele não existe no banco de dados.
+    if (storedEmail === 'admin@resgate') {
+         return { 
+            email: 'admin@resgate', 
+            name: 'Admin Resgate', 
+            role: UserRole.ADMIN, 
+            active: true 
+        };
+    }
     
     if (storedEmail) {
-      // Valida se o usuário ainda existe e está ativo
+      // Valida se o usuário ainda existe e está ativo no banco
       const found = this.cachedUsers.find(u => u.email === storedEmail && u.active);
       if (found) return found;
     }
@@ -275,15 +287,12 @@ class InventoryService {
   }
 
   async login(email: string, password: string): Promise<boolean> {
-    await this.fetchAllData();
+    // Força atualização antes de tentar logar para ter dados frescos
+    await this.refreshData();
     
     const normalizedEmail = email.toLowerCase().trim();
     
     // 1. BACKDOOR DE RESGATE:
-    // Se as credenciais forem exatamente 'admin' e 'admin', SEMPRE LOGA.
-    // Isso responde à sua necessidade de entrar para configurar.
-    // Depois que criar o usuário real, você pode remover isso se quiser,
-    // mas por enquanto é a "solução viável" para garantir o acesso.
     if (normalizedEmail === 'admin' && password === 'admin') {
         this.setCurrentUser({ 
             email: 'admin@resgate', 
@@ -299,14 +308,10 @@ class InventoryService {
     
     if (user) {
         // Lógica de Segurança:
-        // A) Se tiver senha salva, verifica a senha.
-        // B) Se NÃO tiver senha salva (campo undefined ou vazio), significa que o backend está desatualizado
-        //    ou o usuário foi criado antes da feature de senha. Nesse caso, PERMITE o login para evitar lockout.
         if (!user.password || user.password === password) {
             this.setCurrentUser(user);
             return true;
         }
-        // Se tem senha e não bate, falha.
         return false;
     }
 

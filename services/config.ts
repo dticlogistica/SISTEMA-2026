@@ -6,4 +6,4 @@
 // 3. Clique em Implantar > Nova Implantação > Web App > Acesso: "Qualquer pessoa"
 // 4. Cole a URL gerada abaixo:
 
-export const API_URL = 'https://script.google.com/macros/s/AKfycbyNLt5pNZO-pP2JTLUZLEuITSTz-7VZYRhhx6g3u0UXYYRZbolRTC2rLzxyJq5sjuFn0g/exec';
+export const API_URL = 'https://script.google.com/macros/s/AKfycbwrZVNQu_WfFgsD0MZyuk0KwGRQjGeV9ZzPp7FISwajRD6IbPQm5sYuL_rNiiubUkPY8w/exec';
