@@ -222,13 +222,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 )}
                 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Usuário ou E-mail</label>
                   <input 
-                    type="email" 
+                    type="text" 
                     required
                     autoFocus
                     className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-accent outline-none"
-                    placeholder="seu@email.com"
+                    placeholder="admin ou seu@email.com"
                     value={loginEmail}
                     onChange={e => setLoginEmail(e.target.value)}
                   />

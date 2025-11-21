@@ -279,7 +279,8 @@ class InventoryService {
     
     // Fallback para ADMIN INICIAL se não houver usuários cadastrados
     if (this.cachedUsers.length === 0) {
-         if (email === 'admin' && password === 'admin') {
+         // Aceita 'admin' (texto puro) ou 'admin@admin' (formato email)
+         if ((email === 'admin' || email === 'admin@admin') && password === 'admin') {
             const tempAdmin = { email: 'admin@setup', name: 'Admin Temporário', role: UserRole.ADMIN, active: true };
             this.setCurrentUser(tempAdmin);
             return true;
