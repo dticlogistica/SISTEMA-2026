@@ -190,7 +190,7 @@ class InventoryService {
     await this.refreshData();
   }
 
-  private async postData(action: string, payload: any): Promise<boolean> {
+  private async postData(action: string, payload: any): Promise<any> {
     try {
       const url = this.getApiUrl();
       const targetUrl = `${url}?action=${action}`;
@@ -214,7 +214,8 @@ class InventoryService {
 
       if (result.success) {
         await this.refreshData(); 
-        return true;
+        // RETORNA O RESULTADO COMPLETO AGORA, NÃO APENAS TRUE
+        return result;
       } else {
         alert(`Erro do Sistema: ${result.error}`);
         return false;
@@ -354,7 +355,8 @@ class InventoryService {
   }
 
   async saveUser(user: User): Promise<boolean> {
-    return await this.postData('saveUser', user);
+    const result = await this.postData('saveUser', user);
+    return result && result.success;
   }
 
   // --- INVENTORY & DASHBOARD ---
@@ -450,7 +452,7 @@ class InventoryService {
     };
   }
 
-  async executeDistribution(movementsAllocated: { productId: string; neId: string; qty: number; unitValue: number }[], userEmail: string, obs: string): Promise<boolean> {
+  async executeDistribution(movementsAllocated: { productId: string; neId: string; qty: number; unitValue: number }[], userEmail: string, obs: string): Promise<{ success: boolean, receiptId?: string }> {
     const timestamp = new Date().toISOString();
     
     const movementsData = movementsAllocated.map(m => {
@@ -470,7 +472,13 @@ class InventoryService {
       };
     });
 
-    return await this.postData('distribute', { movements: movementsData });
+    const result = await this.postData('distribute', { movements: movementsData });
+    
+    // Suporte para backend antigo (apenas boolean) ou novo (objeto completo)
+    if (typeof result === 'boolean') {
+       return { success: result };
+    }
+    return { success: result.success, receiptId: result.receiptId };
   }
 
   async reverseMovement(movementId: string, userEmail: string): Promise<boolean> {
@@ -491,7 +499,8 @@ class InventoryService {
       isReversed: false
     };
 
-    return await this.postData('reverse', { movementId, reversalMovement });
+    const result = await this.postData('reverse', { movementId, reversalMovement });
+    return result && result.success;
   }
 
   async createNotaEmpenho(neData: { number: string, supplier: string, date: string }, items: any[]): Promise<boolean> {
@@ -540,11 +549,12 @@ class InventoryService {
       movementsPayload.push(newMovement);
     });
 
-    return await this.postData('createNE', { 
+    const result = await this.postData('createNE', { 
       ne: newNE, 
       items: productsPayload, 
       movements: movementsPayload 
     });
+    return result && result.success;
   }
 
   async getMovements(): Promise<Movement[]> {

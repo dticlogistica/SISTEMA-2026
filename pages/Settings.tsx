@@ -135,7 +135,16 @@ function distribute(ss, payload) {
     }
   });
 
-  return createJSONOutput({ success: true });
+  // LÓGICA DE NUMERAÇÃO SEQUENCIAL DO RECIBO
+  const scriptProperties = PropertiesService.getScriptProperties();
+  let lastId = Number(scriptProperties.getProperty('LAST_REC_ID')) || 0;
+  lastId++;
+  scriptProperties.setProperty('LAST_REC_ID', lastId.toString());
+  
+  const year = new Date().getFullYear();
+  const receiptId = "REC-" + ("0000" + lastId).slice(-4) + "/" + year;
+
+  return createJSONOutput({ success: true, receiptId: receiptId });
 }
 
 function reverseMovement(ss, payload) {

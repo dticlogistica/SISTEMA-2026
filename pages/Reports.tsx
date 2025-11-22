@@ -96,9 +96,9 @@ const Reports: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="hidden print:block mb-8 text-center border-b-2 border-slate-800 pb-4">
-        <h1 className="font-bold text-xl text-slate-900 uppercase tracking-wide">POLICIA MILITAR DO ESTADO DE SÃO PAULO</h1>
-        <h2 className="font-bold text-lg text-slate-900 uppercase tracking-wide">Diretoria de Tecnologia da Informação e Comunicação</h2>
-        <p className="text-sm font-bold text-slate-700 uppercase mt-1">Seção Logística - 2026</p>
+        <h1 className="text-base font-bold text-slate-900 uppercase whitespace-nowrap tracking-wide">POLICIA MILITAR DO ESTADO DE SÃO PAULO</h1>
+        <h2 className="font-bold text-sm text-slate-900 uppercase tracking-wide">Diretoria de Tecnologia da Informação e Comunicação</h2>
+        <p className="text-xs font-bold text-slate-700 uppercase mt-1">Seção Logística - 2026</p>
         <h3 className="font-bold text-lg text-slate-900 uppercase tracking-wide mt-4">Relatório de Movimentações</h3>
         <div className="mt-4 flex justify-between items-end text-sm text-slate-600">
           <div className="text-left">

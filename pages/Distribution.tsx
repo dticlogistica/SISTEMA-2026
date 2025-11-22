@@ -81,11 +81,18 @@ const Distribution: React.FC = () => {
     try {
         const allMovements: any[] = [];
         cart.forEach(item => item.allocations.forEach(alloc => allMovements.push(alloc)));
-        const success = await inventoryService.executeDistribution(allMovements, currentUser?.email || 'user@email.com', observation);
         
-        if (success) {
-          const randomNum = Math.floor(Math.random() * 999) + 1;
-          const receiptId = `REC-${randomNum.toString().padStart(4, '0')}/${new Date().getFullYear()}`;
+        const result = await inventoryService.executeDistribution(
+          allMovements, 
+          currentUser?.email || 'user@email.com', 
+          observation
+        );
+        
+        if (result.success) {
+          // Se o servidor retornou um ID sequencial (receiptId), usa ele.
+          // Caso contrário (backend antigo), gera um fallback local baseado em data.
+          const receiptId = result.receiptId || `REC-${Date.now().toString().slice(-6)}/${new Date().getFullYear()}`;
+          
           setReceiptData({
             id: receiptId,
             date: new Date().toLocaleString('pt-BR'),
@@ -116,12 +123,12 @@ const Distribution: React.FC = () => {
         <div className="sheet-a4 bg-white shadow-2xl print:shadow-none p-[20mm] text-slate-900 box-border relative flex flex-col">
           <div className="flex items-center gap-6 border-b-2 border-black pb-6 mb-6">
             <div className="w-20 h-20 flex items-center justify-center border-2 border-black rounded-lg bg-slate-50 print:bg-transparent"><Building2 size={40} className="text-black" /></div>
-            <div className="flex-1">
-               <h1 className="text-xl font-bold uppercase leading-tight">POLICIA MILITAR DO ESTADO DE SÃO PAULO</h1>
-               <h2 className="text-lg font-bold uppercase leading-tight">Diretoria de Tecnologia da Informação e Comunicação</h2>
-               <h3 className="text-sm font-semibold uppercase mt-1">Seção Logística - 2026</h3>
+            <div className="flex-1 overflow-hidden">
+               <h1 className="text-base font-bold uppercase whitespace-nowrap leading-tight">POLICIA MILITAR DO ESTADO DE SÃO PAULO</h1>
+               <h2 className="text-sm font-bold uppercase leading-tight mt-1">Diretoria de Tecnologia da Informação e Comunicação</h2>
+               <h3 className="text-xs font-semibold uppercase mt-1 text-slate-600">Seção Logística - 2026</h3>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
                <div className="border border-black px-3 py-1 rounded"><p className="text-xs font-bold uppercase">Controle Nº</p><p className="text-lg font-mono font-bold">{receiptData.id}</p></div>
             </div>
           </div>
@@ -129,7 +136,7 @@ const Distribution: React.FC = () => {
           <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
              <div className="border border-black p-3 rounded relative">
                 <span className="absolute -top-2 left-2 bg-white px-1 text-xs font-bold uppercase">Origem / Emissor</span>
-                <p><span className="font-semibold">Unidade:</span> Almoxarifado Central - DTIC</p>
+                <p><span className="font-semibold">Unidade:</span> Seção Logística - DTIC</p>
                 <p><span className="font-semibold">Responsável:</span> {receiptData.distributorName}</p>
                 <p><span className="font-semibold">Data de Emissão:</span> {receiptData.date}</p>
              </div>
