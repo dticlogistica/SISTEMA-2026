@@ -119,9 +119,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white shadow-xl z-10 print:hidden">
         <div className="p-6 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-sky-400 tracking-tight leading-tight">SISTEMA <span className="text-white">PMESP</span></h1>
-          <p className="text-xs font-bold text-slate-300 mt-2">DTIC - ALMOXARIFADO</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">Seção Logística - 2026</p>
+          <h1 className="text-xl font-bold text-sky-400 tracking-tight leading-tight">SISTEMA <span className="text-white">DTIC-PRÓ</span></h1>
+          <p className="text-xs font-bold text-slate-300 mt-2">Gestão de Almoxarifado</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Seção Logística</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {filteredNav.map((item) => {
@@ -169,7 +169,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-20 print:hidden">
-           <div className="md:hidden font-bold text-slate-800">DTIC-PRÓ</div>
+           <div className="md:hidden font-bold text-slate-800">SISTEMA DTIC-PRÓ</div>
            
            <div className="flex items-center gap-4 ml-auto">
               {/* Refresh Button */}
