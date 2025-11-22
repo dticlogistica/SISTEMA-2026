@@ -117,9 +117,9 @@ const Distribution: React.FC = () => {
           <div className="flex items-center gap-6 border-b-2 border-black pb-6 mb-6">
             <div className="w-20 h-20 flex items-center justify-center border-2 border-black rounded-lg bg-slate-50 print:bg-transparent"><Building2 size={40} className="text-black" /></div>
             <div className="flex-1">
-               <h1 className="text-xl font-bold uppercase leading-tight">Governo do Estado</h1>
-               <h2 className="text-lg font-bold uppercase leading-tight">Diretoria de Tecnologia da Informação</h2>
-               <h3 className="text-sm font-semibold uppercase mt-1">Seção de Logística e Almoxarifado</h3>
+               <h1 className="text-xl font-bold uppercase leading-tight">POLICIA MILITAR DO ESTADO DE SÃO PAULO</h1>
+               <h2 className="text-lg font-bold uppercase leading-tight">Diretoria de Tecnologia da Informação e Comunicação</h2>
+               <h3 className="text-sm font-semibold uppercase mt-1">Seção Logística - 2026</h3>
             </div>
             <div className="text-right">
                <div className="border border-black px-3 py-1 rounded"><p className="text-xs font-bold uppercase">Controle Nº</p><p className="text-lg font-mono font-bold">{receiptData.id}</p></div>
@@ -129,7 +129,7 @@ const Distribution: React.FC = () => {
           <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
              <div className="border border-black p-3 rounded relative">
                 <span className="absolute -top-2 left-2 bg-white px-1 text-xs font-bold uppercase">Origem / Emissor</span>
-                <p><span className="font-semibold">Unidade:</span> Almoxarifado Central</p>
+                <p><span className="font-semibold">Unidade:</span> Almoxarifado Central - DTIC</p>
                 <p><span className="font-semibold">Responsável:</span> {receiptData.distributorName}</p>
                 <p><span className="font-semibold">Data de Emissão:</span> {receiptData.date}</p>
              </div>
@@ -181,7 +181,7 @@ const Distribution: React.FC = () => {
                 <div className="flex-1 text-center"><div className="border-t border-black mb-2"></div><p className="font-bold uppercase text-sm">{receiptData.receiverName || '_____________________________'}</p><p className="text-xs">Recebedor</p></div>
              </div>
           </div>
-          <div className="mt-4 text-center text-[10px] text-slate-500">Sistema DTIC-PRÓ - Emitido em {receiptData.date}</div>
+          <div className="mt-4 text-center text-[10px] text-slate-500">Sistema DTIC-PMESP - Emitido em {receiptData.date}</div>
         </div>
       </div>
     );

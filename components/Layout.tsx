@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye } from 'lucide-react';
@@ -118,8 +119,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white shadow-xl z-10 print:hidden">
         <div className="p-6 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-sky-400 tracking-tight leading-tight">SISTEMA <span className="text-white">DTIC-PRÓ</span></h1>
-          <p className="text-xs font-bold text-slate-300 mt-2">GESTÃO DE ALMOXARIFADO</p>
+          <h1 className="text-xl font-bold text-sky-400 tracking-tight leading-tight">SISTEMA <span className="text-white">PMESP</span></h1>
+          <p className="text-xs font-bold text-slate-300 mt-2">DTIC - ALMOXARIFADO</p>
           <p className="text-[10px] text-slate-500 mt-0.5">Seção Logística - 2026</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">
