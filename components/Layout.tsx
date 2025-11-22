@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X } from 'lucide-react';
+import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye } from 'lucide-react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
 
@@ -117,9 +116,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden print:h-auto print:overflow-visible">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-primary text-white shadow-xl z-10 print:hidden">
+      <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white shadow-xl z-10 print:hidden">
         <div className="p-6 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-accent tracking-tight leading-tight">SISTEMA <span className="text-white">DTIC-PRÓ</span></h1>
+          <h1 className="text-xl font-bold text-sky-400 tracking-tight leading-tight">SISTEMA <span className="text-white">DTIC-PRÓ</span></h1>
           <p className="text-xs font-bold text-slate-300 mt-2">GESTÃO DE ALMOXARIFADO</p>
           <p className="text-[10px] text-slate-500 mt-0.5">Seção Logística - 2026</p>
         </div>
@@ -130,140 +129,130 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                   isActive 
-                    ? 'bg-accent text-white shadow-md' 
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-sky-600 text-white shadow-md' 
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
               >
                 {item.icon}
-                <span className="font-medium">{item.name}</span>
+                {item.name}
               </Link>
             );
           })}
-
-          <button
-            onClick={handleRefresh}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-slate-300 hover:bg-slate-800 hover:text-white w-full text-left mt-4 border-t border-slate-700 pt-4"
-          >
-            <RefreshCw size={20} />
-            <span className="font-medium">Sincronizar</span>
-          </button>
         </nav>
-        
+
         <div className="p-4 border-t border-slate-700">
-          {isGuest ? (
+           {currentUser && !isGuest ? (
+             <div className="flex items-center justify-between bg-slate-800 p-3 rounded-lg">
+                <div className="overflow-hidden">
+                   <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                   <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
+                </div>
+                <button onClick={handleLogout} className="text-slate-400 hover:text-red-400" title="Sair">
+                   <LogOut size={16} />
+                </button>
+             </div>
+           ) : (
              <button 
                onClick={() => setIsLoginOpen(true)}
-               className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition-colors font-bold"
+               className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-sm font-bold transition-colors"
              >
-               <LogIn size={18} /> Fazer Login
+               <LogIn size={16} /> Acessar Sistema
              </button>
-          ) : (
-            <div className="flex items-center justify-between">
-               <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                    currentUser.role === UserRole.ADMIN ? 'bg-purple-600' : 
-                    currentUser.role === UserRole.MANAGER ? 'bg-emerald-600' : 'bg-blue-600'
-                  }`}>
-                    {currentUser.name.charAt(0)}
-                  </div>
-                  <div className="overflow-hidden">
-                    <p className="text-sm font-bold truncate w-24">{currentUser.name}</p>
-                    <p className="text-[10px] text-slate-400 uppercase">{currentUser.role}</p>
-                  </div>
-               </div>
-               <button onClick={handleLogout} className="text-slate-400 hover:text-red-400" title="Sair">
-                 <LogOut size={18} />
-               </button>
-            </div>
-          )}
+           )}
         </div>
       </aside>
 
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 w-full bg-primary text-white z-20 p-4 flex justify-between items-center print:hidden">
-         <h1 className="font-bold">DTIC-PRÓ</h1>
-         <div className="flex gap-4">
-            {isGuest ? (
-               <button onClick={() => setIsLoginOpen(true)}><LogIn size={24} /></button>
-            ) : (
-               <button onClick={handleLogout}><LogOut size={24} /></button>
-            )}
-         </div>
+      {/* Mobile Header & Main Content */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Header */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-20 print:hidden">
+           <div className="md:hidden font-bold text-slate-800">DTIC-PRÓ</div>
+           
+           <div className="flex items-center gap-4 ml-auto">
+              {/* Refresh Button */}
+              <button onClick={handleRefresh} className="p-2 text-slate-400 hover:text-sky-600 rounded-full hover:bg-sky-50 transition-colors" title="Atualizar Dados">
+                 <RefreshCw size={20} />
+              </button>
+              
+              {/* User Status Badge */}
+              {currentUser && (
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${
+                    isGuest 
+                      ? 'bg-slate-100 text-slate-500 border-slate-200' 
+                      : 'bg-sky-50 text-sky-700 border-sky-200'
+                }`}>
+                    {isGuest ? <Eye size={14} /> : <ShieldCheck size={14} />}
+                    <span className="uppercase">{currentUser.role}</span>
+                </div>
+              )}
+           </div>
+        </header>
+
+        {/* Main Scrollable Area */}
+        <main className="flex-1 overflow-auto p-6 md:p-8 print:p-0 print:overflow-visible">
+           {children}
+        </main>
       </div>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto p-4 md:p-8 mt-14 md:mt-0 print:p-0 print:mt-0">
-        {children}
-      </main>
-
-      {/* Modal de Login */}
+      {/* Login Modal */}
       {isLoginOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden relative">
-            <button 
-               onClick={() => setIsLoginOpen(false)}
-               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-            >
-              <X size={20} />
-            </button>
-            
-            <div className="p-8">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4 text-slate-700">
-                  <Lock size={32} />
-                </div>
-                <h2 className="text-2xl font-bold text-slate-800">Acesso Restrito</h2>
-                <p className="text-slate-500 text-sm mt-1">Entre com suas credenciais de servidor.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="p-6 text-center bg-slate-50 border-b border-slate-100">
+                 <div className="mx-auto w-12 h-12 bg-sky-100 rounded-full flex items-center justify-center mb-4 text-sky-600">
+                    <Lock size={24} />
+                 </div>
+                 <h3 className="text-xl font-bold text-slate-800">Acesso Restrito</h3>
+                 <p className="text-sm text-slate-500 mt-1">Identifique-se para gerenciar o almoxarifado.</p>
               </div>
+              
+              <form onSubmit={handleLogin} className="p-6 space-y-4">
+                 {loginError && (
+                    <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg flex items-center gap-2">
+                       <X size={16} /> {loginError}
+                    </div>
+                 )}
+                 
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                    <input 
+                       type="text" 
+                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                       placeholder="seu@email.com"
+                       value={loginEmail}
+                       onChange={e => setLoginEmail(e.target.value)}
+                       autoFocus
+                    />
+                 </div>
+                 
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+                    <input 
+                       type="password" 
+                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                       placeholder="••••••"
+                       value={loginPass}
+                       onChange={e => setLoginPass(e.target.value)}
+                    />
+                 </div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
-                {loginError && (
-                  <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg text-center border border-red-100 font-medium animate-pulse">
-                    {loginError}
-                  </div>
-                )}
-                
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Usuário ou E-mail</label>
-                  <input 
-                    type="text" 
-                    required
-                    autoFocus
-                    className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-accent outline-none"
-                    placeholder="admin ou seu@email.com"
-                    value={loginEmail}
-                    onChange={e => { setLoginEmail(e.target.value); setLoginError(''); }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha</label>
-                  <input 
-                    type="password" 
-                    required
-                    className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-accent outline-none"
-                    placeholder="••••••"
-                    value={loginPass}
-                    onChange={e => { setLoginPass(e.target.value); setLoginError(''); }}
-                  />
-                </div>
-
-                <button 
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 transition-colors shadow-lg disabled:opacity-70 flex justify-center"
-                >
-                  {loading ? <RefreshCw className="animate-spin" /> : 'Entrar no Sistema'}
-                </button>
+                 <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+                 >
+                    {loading ? 'Verificando...' : <><LogIn size={18} /> Entrar</>}
+                 </button>
               </form>
-
-              <div className="mt-6 text-center border-t border-slate-100 pt-4">
-                <p className="text-xs text-slate-400">Não tem acesso? Contate o Administrador.</p>
+              
+              <div className="p-4 bg-slate-50 text-center border-t border-slate-100">
+                 <button onClick={() => setIsLoginOpen(false)} className="text-sm text-slate-500 hover:text-slate-800 font-medium">
+                    Continuar como Visitante
+                 </button>
               </div>
-            </div>
-          </div>
+           </div>
         </div>
       )}
     </div>

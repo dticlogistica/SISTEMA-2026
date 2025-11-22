@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
-import { Users, UserPlus, Shield, Edit, Trash2, Check, X, HelpCircle, Globe, Github, Server, Activity, Database, Save, Copy, Key, AlertTriangle } from 'lucide-react';
+import { Users, UserPlus, Shield, Edit, Trash2, Check, X, HelpCircle, Globe, Github, Server, Activity, Database, Save, Copy, Key, AlertTriangle, Lock } from 'lucide-react';
 
 const BACKEND_CODE = `
 // ==================================================
@@ -297,11 +297,36 @@ const Settings: React.FC = () => {
     alert("Código copiado!");
   };
 
-  // REMOVIDO O BLOQUEIO RÍGIDO DE ACESSO
-  // A página agora exibe um alerta se for Visitante, mas permite o uso para recuperar o sistema.
   const isGuest = currentUser?.role === UserRole.GUEST;
-  // Verifica se é o admin de resgate
   const isRescueAdmin = currentUser?.email === 'admin@resgate';
+
+  if (isGuest && !isRescueAdmin) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+              <Shield className="text-slate-600" /> Configurações
+            </h2>
+            <p className="text-slate-500 mt-2">Área administrativa.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl shadow-sm border border-slate-200 text-center min-h-[400px]">
+          <div className="p-6 bg-slate-100 rounded-full mb-6 animate-pulse">
+            <Lock className="h-16 w-16 text-slate-400" />
+          </div>
+          <h3 className="text-2xl font-bold text-slate-800 mb-3">Acesso Bloqueado</h3>
+          <p className="text-slate-500 max-w-lg mb-8 leading-relaxed">
+            O modo <strong>Visitante</strong> não possui permissão para visualizar ou alterar as configurações sensíveis do sistema (Conexão com Banco de Dados e Gestão de Usuários).
+          </p>
+          <div className="bg-blue-50 border border-blue-100 text-blue-800 px-6 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+             <Shield size={16} /> Para acessar esta área, faça login como Administrador.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -321,16 +346,6 @@ const Settings: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {isGuest && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3 animate-pulse">
-          <AlertTriangle className="shrink-0 mt-1" />
-          <div>
-            <p className="font-bold">Modo Visitante</p>
-            <p className="text-sm mt-1">Você não está logado. Para configurar o sistema pela primeira vez, use o login <strong>admin</strong> e senha <strong>admin</strong>.</p>
-          </div>
-        </div>
-      )}
 
       {isRescueAdmin && (
         <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg flex items-start gap-3">
