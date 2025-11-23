@@ -39,13 +39,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const canAccess = (allowedRoles: UserRole[]) => {
     // MODIFICAÇÃO: Permite ver o menu se for GUEST, mas o conteúdo da página pode estar bloqueado
     if (!currentUser) return false;
-    // Se o usuário for GUEST, mostramos tudo no menu para permitir navegação (modo resgate)
+    // Se o usuário for GUEST, mostramos tudo no menu para permitir navegação (modo resgate/simulação)
     if (currentUser.role === UserRole.GUEST) return true;
     return allowedRoles.includes(currentUser.role);
   };
 
   // Ordem Solicitada: Dashboard, Entrada, Distribuição, Estoque, Relatórios, Configurações
-  // Roles atualizadas para permitir visualização no menu (GUEST adicionado em tudo)
+  // Roles atualizadas conforme solicitação:
+  // Admin: Tudo
+  // Gestor: Tudo exceto Configurações
+  // Operador: Dashboard, Distribuição, Estoque, Relatórios (SEM Entrada, SEM Configurações)
+  // Visitante: Tudo (Visualização/Simulação) exceto Configurações (bloqueado na página)
   const allNavItems = [
     { 
       name: 'Painel de Gestão', 
@@ -63,7 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       name: 'Distribuição', 
       path: '/distribution', 
       icon: <ArrowUpFromLine size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.GUEST] 
+      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR, UserRole.GUEST] 
     },
     { 
       name: 'Estoque Geral', 
@@ -75,7 +79,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       name: 'Relatórios', 
       path: '/reports', 
       icon: <FileText size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.GUEST] 
+      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR, UserRole.GUEST] 
     },
     { 
       name: 'Configurações', 
