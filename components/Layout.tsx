@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye } from 'lucide-react';
+import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye, KeyRound } from 'lucide-react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
 
@@ -20,6 +21,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
+  
+  // Change Password Modal State
+  const [isChangePassOpen, setIsChangePassOpen] = useState(false);
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [changePassMsg, setChangePassMsg] = useState<{type: 'error' | 'success', text: string} | null>(null);
+
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -103,6 +112,34 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setLoading(false);
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPass !== confirmPass) {
+        setChangePassMsg({ type: 'error', text: 'As novas senhas não conferem.' });
+        return;
+    }
+    if (newPass.length < 4) {
+        setChangePassMsg({ type: 'error', text: 'A nova senha é muito curta.' });
+        return;
+    }
+
+    setLoading(true);
+    setChangePassMsg(null);
+
+    const result = await inventoryService.changeOwnPassword(oldPass, newPass);
+    
+    if (result.success) {
+        setChangePassMsg({ type: 'success', text: 'Senha alterada com sucesso!' });
+        setTimeout(() => {
+            setIsChangePassOpen(false);
+            setOldPass(''); setNewPass(''); setConfirmPass(''); setChangePassMsg(null);
+        }, 2000);
+    } else {
+        setChangePassMsg({ type: 'error', text: result.message || 'Erro ao alterar senha.' });
+    }
+    setLoading(false);
+  };
+
   const handleLogout = async () => {
     await inventoryService.logout();
   };
@@ -144,14 +181,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <div className="p-4 border-t border-slate-700">
            {currentUser && !isGuest ? (
-             <div className="flex items-center justify-between bg-slate-800 p-3 rounded-lg">
+             <div className="flex items-center justify-between bg-slate-800 p-3 rounded-lg group relative">
                 <div className="overflow-hidden">
                    <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
                    <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
                 </div>
-                <button onClick={handleLogout} className="text-slate-400 hover:text-red-400" title="Sair">
-                   <LogOut size={16} />
-                </button>
+                
+                <div className="flex items-center">
+                    <button onClick={() => setIsChangePassOpen(true)} className="text-slate-400 hover:text-sky-400 p-1" title="Alterar Senha">
+                        <KeyRound size={16} />
+                    </button>
+                    <button onClick={handleLogout} className="text-slate-400 hover:text-red-400 p-1" title="Sair">
+                        <LogOut size={16} />
+                    </button>
+                </div>
              </div>
            ) : (
              <button 
@@ -185,6 +228,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 }`}>
                     {isGuest ? <Eye size={14} /> : <ShieldCheck size={14} />}
                     <span className="uppercase">{currentUser.role}</span>
+                    {!isGuest && (
+                         <button onClick={() => setIsChangePassOpen(true)} className="ml-2 md:hidden text-slate-400 hover:text-sky-600">
+                             <KeyRound size={14} />
+                         </button>
+                    )}
                 </div>
               )}
            </div>
@@ -253,6 +301,48 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                  </button>
               </div>
            </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {isChangePassOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="p-6 flex justify-between items-center bg-slate-50 border-b border-slate-100">
+                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                        <KeyRound size={20} className="text-sky-600" /> Alterar Senha
+                    </h3>
+                    <button onClick={() => setIsChangePassOpen(false)} className="text-slate-400 hover:text-red-500"><X size={20} /></button>
+                </div>
+                
+                <form onSubmit={handleChangePassword} className="p-6 space-y-4">
+                    {changePassMsg && (
+                        <div className={`p-3 text-sm rounded-lg flex items-center gap-2 ${changePassMsg.type === 'error' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                             {changePassMsg.type === 'error' ? <X size={16} /> : <ShieldCheck size={16} />} 
+                             {changePassMsg.text}
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Senha Atual</label>
+                        <input type="password" required className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500" value={oldPass} onChange={e => setOldPass(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Nova Senha</label>
+                        <input type="password" required minLength={4} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500" value={newPass} onChange={e => setNewPass(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar Nova Senha</label>
+                        <input type="password" required minLength={4} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-sky-500" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} />
+                    </div>
+
+                    <div className="pt-2">
+                        <button type="submit" disabled={loading} className="w-full py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-700 transition-colors disabled:opacity-70">
+                            {loading ? 'Salvando...' : 'Confirmar Alteração'}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
       )}
     </div>
