@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye, KeyRound } from 'lucide-react';
+import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye, KeyRound, User as UserIcon } from 'lucide-react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
 
@@ -179,29 +179,42 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-700">
+        <div className="p-4 border-t border-slate-700 bg-slate-900">
            {currentUser && !isGuest ? (
-             <div className="flex items-center justify-between bg-slate-800 p-3 rounded-lg group relative">
-                <div className="overflow-hidden">
-                   <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
-                   <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
+             <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3 px-1">
+                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sky-400 font-bold shadow-inner">
+                        <UserIcon size={20} />
+                    </div>
+                    <div className="overflow-hidden">
+                       <p className="text-sm font-bold text-white truncate">{currentUser.name.split(' ')[0]}</p>
+                       <p className="text-[10px] text-slate-400 truncate uppercase">{currentUser.role}</p>
+                    </div>
                 </div>
                 
-                <div className="flex items-center">
-                    <button onClick={() => setIsChangePassOpen(true)} className="text-slate-400 hover:text-sky-400 p-1" title="Alterar Senha">
-                        <KeyRound size={16} />
+                <div className="grid grid-cols-1 gap-2 mt-1">
+                    <button 
+                        onClick={() => setIsChangePassOpen(true)} 
+                        className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wide border border-slate-700 hover:border-sky-500"
+                        title="Alterar Senha"
+                    >
+                        <KeyRound size={14} /> Alterar Senha
                     </button>
-                    <button onClick={handleLogout} className="text-slate-400 hover:text-red-400 p-1" title="Sair">
-                        <LogOut size={16} />
+                    <button 
+                        onClick={handleLogout} 
+                        className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wide border border-slate-700 hover:border-red-500"
+                        title="Sair do Sistema"
+                    >
+                        <LogOut size={14} /> Sair
                     </button>
                 </div>
              </div>
            ) : (
              <button 
                onClick={() => setIsLoginOpen(true)}
-               className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-sm font-bold transition-colors"
+               className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg text-sm font-bold transition-colors shadow-lg shadow-emerald-900/20"
              >
-               <LogIn size={16} /> Acessar Sistema
+               <LogIn size={18} /> Acessar Sistema
              </button>
            )}
         </div>
@@ -211,9 +224,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-20 print:hidden">
-           <div className="md:hidden font-bold text-slate-800">SISTEMA DTIC-PRÓ</div>
+           <div className="md:hidden font-bold text-slate-800 flex flex-col leading-none">
+              <span>SISTEMA</span>
+              <span className="text-sky-600 text-sm">DTIC-PRÓ</span>
+           </div>
            
-           <div className="flex items-center gap-4 ml-auto">
+           <div className="flex items-center gap-3 ml-auto">
               {/* Refresh Button */}
               <button onClick={handleRefresh} className="p-2 text-slate-400 hover:text-sky-600 rounded-full hover:bg-sky-50 transition-colors" title="Atualizar Dados">
                  <RefreshCw size={20} />
@@ -227,11 +243,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       : 'bg-sky-50 text-sky-700 border-sky-200'
                 }`}>
                     {isGuest ? <Eye size={14} /> : <ShieldCheck size={14} />}
-                    <span className="uppercase">{currentUser.role}</span>
+                    <span className="uppercase hidden sm:inline">{currentUser.role}</span>
+                    
                     {!isGuest && (
-                         <button onClick={() => setIsChangePassOpen(true)} className="ml-2 md:hidden text-slate-400 hover:text-sky-600">
-                             <KeyRound size={14} />
-                         </button>
+                         <div className="flex items-center gap-2 pl-2 ml-2 border-l border-sky-200 md:hidden">
+                            <button onClick={() => setIsChangePassOpen(true)} className="text-sky-600 hover:text-sky-800" title="Senha">
+                                <KeyRound size={16} />
+                            </button>
+                            <button onClick={handleLogout} className="text-red-500 hover:text-red-700" title="Sair">
+                                <LogOut size={16} />
+                            </button>
+                         </div>
                     )}
                 </div>
               )}
@@ -322,6 +344,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                              {changePassMsg.text}
                         </div>
                     )}
+
+                    <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm border border-blue-100">
+                        <p>Para sua segurança, após alterar a senha, você precisará fazer login novamente.</p>
+                    </div>
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Senha Atual</label>

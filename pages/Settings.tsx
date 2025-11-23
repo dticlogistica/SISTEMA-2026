@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
@@ -55,6 +56,9 @@ function createJSONOutput(data) {
 }
 
 function getAllData(ss) {
+  // Garante que a estrutura das planilhas esteja correta antes de ler
+  checkAndFixHeaders(ss);
+
   return {
     users: sheetToJSON(getOrCreateSheet(ss, 'Users')),
     products: sheetToJSON(getOrCreateSheet(ss, 'Products')),
@@ -65,6 +69,13 @@ function getAllData(ss) {
 
 function saveUser(ss, user) {
   const sheet = getOrCreateSheet(ss, 'Users');
+  
+  // Verifica cabeçalhos novamente para garantir que a coluna password exista antes de escrever
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf('password') === -1) {
+    sheet.getRange(1, headers.length + 1).setValue('password');
+  }
+
   const data = sheet.getDataRange().getValues();
   
   let rowIndex = -1;
@@ -79,8 +90,8 @@ function saveUser(ss, user) {
   const rowData = [user.email, user.name, user.role, user.active, user.password || ''];
 
   if (rowIndex > 0) {
-    // Atualiza
-    sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+    // Atualiza - Garante escrita até a coluna 5 (password) mesmo que a planilha antiga fosse menor
+    sheet.getRange(rowIndex, 1, 1, 5).setValues([rowData]);
   } else {
     sheet.appendRow(rowData);
   }
@@ -134,7 +145,6 @@ function distribute(ss, payload) {
     }
   });
 
-  // LÓGICA DE NUMERAÇÃO SEQUENCIAL DO RECIBO
   const scriptProperties = PropertiesService.getScriptProperties();
   let lastId = Number(scriptProperties.getProperty('LAST_REC_ID')) || 0;
   lastId++;
@@ -190,13 +200,32 @@ function getOrCreateSheet(ss, name) {
   return sheet;
 }
 
+// Função de autocorreção para planilhas existentes
+function checkAndFixHeaders(ss) {
+  const userSheet = ss.getSheetByName('Users');
+  if (userSheet) {
+    const lastCol = userSheet.getLastColumn();
+    // Se a planilha estiver vazia ou com colunas erradas
+    if (lastCol > 0) {
+      const headers = userSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      // Verifica se falta a coluna password
+      if (headers.indexOf('password') === -1) {
+        userSheet.getRange(1, headers.length + 1).setValue('password');
+      }
+    }
+  }
+}
+
 function sheetToJSON(sheet) {
   const data = sheet.getDataRange().getValues();
+  if (data.length === 0) return [];
+  
   const headers = data[0];
   const result = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const obj = {};
+    // Mapeia apenas até o limite do header, ou da linha
     for (let j = 0; j < headers.length; j++) {
       obj[headers[j]] = row[j];
     }
