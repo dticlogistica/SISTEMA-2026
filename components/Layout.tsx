@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye } from 'lucide-react';
@@ -37,19 +36,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, []);
 
   const canAccess = (allowedRoles: UserRole[]) => {
-    // MODIFICAÇÃO: Permite ver o menu se for GUEST, mas o conteúdo da página pode estar bloqueado
     if (!currentUser) return false;
-    // Se o usuário for GUEST, mostramos tudo no menu para permitir navegação (modo resgate/simulação)
-    if (currentUser.role === UserRole.GUEST) return true;
     return allowedRoles.includes(currentUser.role);
   };
 
-  // Ordem Solicitada: Dashboard, Entrada, Distribuição, Estoque, Relatórios, Configurações
-  // Roles atualizadas conforme solicitação:
-  // Admin: Tudo
-  // Gestor: Tudo exceto Configurações
-  // Operador: Dashboard, Distribuição, Estoque, Relatórios (SEM Entrada, SEM Configurações)
-  // Visitante: Tudo (Visualização/Simulação) exceto Configurações (bloqueado na página)
+  // Regras de Acesso Atualizadas:
+  // Admin: Tudo.
+  // Gestor: Tudo, exceto Configurações.
+  // Operador: Painel, Distribuição, Estoque, Relatórios. (Sem Entrada, Sem Config).
+  // Visitante: Painel, Simulação Dist, Estoque, Relatórios. (Sem Entrada, Sem Config).
   const allNavItems = [
     { 
       name: 'Painel de Gestão', 
@@ -61,7 +56,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       name: 'Entrada / NE', 
       path: '/entry', 
       icon: <Box size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.GUEST] 
+      roles: [UserRole.ADMIN, UserRole.MANAGER] // Operador e Visitante removidos
     },
     { 
       name: 'Distribuição', 
@@ -85,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       name: 'Configurações', 
       path: '/settings', 
       icon: <Settings size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.GUEST] 
+      roles: [UserRole.ADMIN] // Exclusivo ADMIN
     },
   ];
 

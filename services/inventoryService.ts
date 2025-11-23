@@ -1,4 +1,3 @@
-
 import { Product, NotaEmpenho, Movement, MovementType, DashboardStats, NEStatus, User, UserRole } from '../types';
 import { API_URL as DEFAULT_API_URL } from './config';
 
@@ -328,7 +327,13 @@ class InventoryService {
     const user = this.cachedUsers.find(u => u.email.toLowerCase() === normalizedEmail && u.active);
     
     if (user) {
-        if (!user.password || user.password === password) {
+        // Validação Estrita de Senha
+        // Tratamento seguro para undefined/null que poderiam vir do JSON
+        const storedPass = (user.password !== undefined && user.password !== null) ? String(user.password).trim() : '';
+        const inputPass = (password !== undefined && password !== null) ? String(password).trim() : '';
+        
+        // Comparação estrita
+        if (storedPass === inputPass) {
             this.setCurrentUser(user);
             return true;
         }
