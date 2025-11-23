@@ -183,11 +183,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
            {currentUser && !isGuest ? (
              <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3 px-1">
-                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sky-400 font-bold shadow-inner">
+                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sky-400 font-bold shadow-inner shrink-0">
                         <UserIcon size={20} />
                     </div>
                     <div className="overflow-hidden">
-                       <p className="text-sm font-bold text-white truncate">{currentUser.name.split(' ')[0]}</p>
+                       <p className="text-sm font-bold text-white truncate" title={currentUser.name}>{currentUser.name}</p>
                        <p className="text-[10px] text-slate-400 truncate uppercase">{currentUser.role}</p>
                     </div>
                 </div>
