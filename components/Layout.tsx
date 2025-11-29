@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye, KeyRound, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, Box, ArrowUpFromLine, FileText, Settings, LogIn, LogOut, RefreshCw, PackageSearch, Lock, X, ShieldCheck, Eye, KeyRound, User as UserIcon, Book } from 'lucide-react';
 import { inventoryService } from '../services/inventoryService';
 import { User, UserRole } from '../types';
 
@@ -49,11 +49,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return allowedRoles.includes(currentUser.role);
   };
 
-  // Regras de Acesso Atualizadas:
-  // Admin: Tudo.
-  // Gestor: Tudo, exceto Configurações.
-  // Operador: Painel, Distribuição, Estoque, Relatórios. (Sem Entrada, Sem Config).
-  // Visitante: Painel, Simulação Dist, Estoque, Relatórios. (Sem Entrada, Sem Config).
   const allNavItems = [
     { 
       name: 'Painel de Gestão', 
@@ -65,7 +60,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       name: 'Entrada / NE', 
       path: '/entry', 
       icon: <Box size={20} />, 
-      roles: [UserRole.ADMIN, UserRole.MANAGER] // Operador e Visitante removidos
+      roles: [UserRole.ADMIN, UserRole.MANAGER] 
     },
     { 
       name: 'Distribuição', 
@@ -86,10 +81,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       roles: [UserRole.ADMIN, UserRole.MANAGER, UserRole.OPERATOR, UserRole.GUEST] 
     },
     { 
+      name: 'Catálogo', 
+      path: '/catalog', 
+      icon: <Book size={20} />, 
+      roles: [UserRole.ADMIN, UserRole.MANAGER] // Apenas Admin e Gestor cadastram produtos
+    },
+    { 
       name: 'Configurações', 
       path: '/settings', 
       icon: <Settings size={20} />, 
-      roles: [UserRole.ADMIN] // Exclusivo ADMIN
+      roles: [UserRole.ADMIN] 
     },
   ];
 

@@ -30,6 +30,8 @@ function handleRequest(e) {
            if (json.action === 'createNE') return createNE(ss, json.payload);
            if (json.action === 'distribute') return distribute(ss, json.payload);
            if (json.action === 'reverse') return reverseMovement(ss, json.payload);
+           if (json.action === 'saveCatalog') return saveCatalog(ss, json.payload);
+           if (json.action === 'deleteCatalog') return deleteCatalog(ss, json.payload);
         }
         payload = json.payload;
       }
@@ -40,6 +42,8 @@ function handleRequest(e) {
     if (action === 'createNE') return createNE(ss, payload);
     if (action === 'distribute') return distribute(ss, payload);
     if (action === 'reverse') return reverseMovement(ss, payload);
+    if (action === 'saveCatalog') return saveCatalog(ss, payload);
+    if (action === 'deleteCatalog') return deleteCatalog(ss, payload);
 
     return createJSONOutput({ error: 'Ação desconhecida' });
 
@@ -56,28 +60,25 @@ function createJSONOutput(data) {
 }
 
 function getAllData(ss) {
-  // Garante que a estrutura das planilhas esteja correta antes de ler
   checkAndFixHeaders(ss);
 
   return {
     users: sheetToJSON(getOrCreateSheet(ss, 'Users')),
     products: sheetToJSON(getOrCreateSheet(ss, 'Products')),
     movements: sheetToJSON(getOrCreateSheet(ss, 'Movements')),
-    nes: sheetToJSON(getOrCreateSheet(ss, 'NotaEmpenho'))
+    nes: sheetToJSON(getOrCreateSheet(ss, 'NotaEmpenho')),
+    catalog: sheetToJSON(getOrCreateSheet(ss, 'Catalog'))
   };
 }
 
 function saveUser(ss, user) {
   const sheet = getOrCreateSheet(ss, 'Users');
-  
-  // Verifica cabeçalhos novamente para garantir que a coluna password exista antes de escrever
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   if (headers.indexOf('password') === -1) {
     sheet.getRange(1, headers.length + 1).setValue('password');
   }
 
   const data = sheet.getDataRange().getValues();
-  
   let rowIndex = -1;
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === user.email) {
@@ -86,16 +87,54 @@ function saveUser(ss, user) {
     }
   }
 
-  // [email, name, role, active, password]
-  const rowData = [user.email, user.name, user.role, user.active, user.password || ''];
+  // Se a senha vier vazia, tenta manter a atual
+  let passwordToSave = user.password || '';
+  if (rowIndex > 0 && passwordToSave === '') {
+     passwordToSave = data[rowIndex-1][4]; // Coluna 5 (índice 4) é password
+  }
+
+  const rowData = [user.email, user.name, user.role, user.active, passwordToSave];
 
   if (rowIndex > 0) {
-    // Atualiza - Garante escrita até a coluna 5 (password) mesmo que a planilha antiga fosse menor
     sheet.getRange(rowIndex, 1, 1, 5).setValues([rowData]);
   } else {
     sheet.appendRow(rowData);
   }
   return createJSONOutput({ success: true });
+}
+
+function saveCatalog(ss, item) {
+  const sheet = getOrCreateSheet(ss, 'Catalog');
+  const data = sheet.getDataRange().getValues();
+  
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === item.name) { // Nome é a chave
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  const rowData = [item.name, item.unit, item.category || 'Geral'];
+
+  if (rowIndex > 0) {
+    sheet.getRange(rowIndex, 1, 1, 3).setValues([rowData]);
+  } else {
+    sheet.appendRow(rowData);
+  }
+  return createJSONOutput({ success: true });
+}
+
+function deleteCatalog(ss, item) {
+  const sheet = getOrCreateSheet(ss, 'Catalog');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === item.name) {
+      sheet.deleteRow(i + 1);
+      return createJSONOutput({ success: true });
+    }
+  }
+  return createJSONOutput({ success: false, error: 'Item não encontrado' });
 }
 
 function createNE(ss, payload) {
@@ -196,22 +235,17 @@ function getOrCreateSheet(ss, name) {
     if (name === 'Products') sheet.appendRow(['id', 'neId', 'name', 'unit', 'qtyPerPackage', 'initialQty', 'unitValue', 'currentBalance', 'minStock', 'createdAt']);
     if (name === 'Movements') sheet.appendRow(['id', 'date', 'type', 'neId', 'productId', 'productName', 'quantity', 'value', 'userEmail', 'observation', 'isReversed']);
     if (name === 'NotaEmpenho') sheet.appendRow(['id', 'supplier', 'date', 'status', 'totalValue']);
+    if (name === 'Catalog') sheet.appendRow(['name', 'unit', 'category']);
   }
   return sheet;
 }
 
-// Função de autocorreção para planilhas existentes
 function checkAndFixHeaders(ss) {
   const userSheet = ss.getSheetByName('Users');
-  if (userSheet) {
-    const lastCol = userSheet.getLastColumn();
-    // Se a planilha estiver vazia ou com colunas erradas
-    if (lastCol > 0) {
-      const headers = userSheet.getRange(1, 1, 1, lastCol).getValues()[0];
-      // Verifica se falta a coluna password
-      if (headers.indexOf('password') === -1) {
-        userSheet.getRange(1, headers.length + 1).setValue('password');
-      }
+  if (userSheet && userSheet.getLastColumn() > 0) {
+    const headers = userSheet.getRange(1, 1, 1, userSheet.getLastColumn()).getValues()[0];
+    if (headers.indexOf('password') === -1) {
+      userSheet.getRange(1, headers.length + 1).setValue('password');
     }
   }
 }
@@ -219,13 +253,11 @@ function checkAndFixHeaders(ss) {
 function sheetToJSON(sheet) {
   const data = sheet.getDataRange().getValues();
   if (data.length === 0) return [];
-  
   const headers = data[0];
   const result = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const obj = {};
-    // Mapeia apenas até o limite do header, ou da linha
     for (let j = 0; j < headers.length; j++) {
       obj[headers[j]] = row[j];
     }
@@ -291,7 +323,7 @@ const Settings: React.FC = () => {
   const handleOpenUserModal = (user?: User) => {
     if (user) {
       setEditingUser(user);
-      setFormData({ ...user, password: user.password || '' });
+      setFormData({ ...user, password: '' }); // Limpa senha no edit para segurança
     } else {
       setEditingUser(null);
       setFormData({ email: '', name: '', role: UserRole.OPERATOR, active: true, password: '' });
@@ -303,8 +335,23 @@ const Settings: React.FC = () => {
     e.preventDefault();
     if (!formData.email || !formData.name) return;
 
+    // Lógica de senha robusta
+    let userToSave = { ...formData };
+    
+    // Se digitou senha, gera hash
+    if (formData.password && formData.password.trim() !== '') {
+        const hash = await inventoryService.hashPassword(formData.password);
+        userToSave.password = hash;
+    } else {
+        // Se não digitou senha, remove o campo para que o backend use a senha antiga
+        // OU envia string vazia se for novo usuário (o que forçaria sem senha, mas a UI não deixa criar novo sem senha)
+        if (editingUser) {
+            userToSave.password = ''; // Sinal para o backend manter a antiga
+        }
+    }
+
     setLoading(true);
-    await inventoryService.saveUser(formData);
+    await inventoryService.saveUser(userToSave);
     await loadUsers();
     setIsUserModalOpen(false);
     setLoading(false);
@@ -337,7 +384,7 @@ const Settings: React.FC = () => {
   const isAdmin = currentUser?.role === UserRole.ADMIN;
   // Apenas Admin pode acessar esta página.
 
-  if (!isAdmin) {
+  if (!isAdmin && currentUser?.role !== UserRole.GUEST) { // Permite GUEST ver tela bloqueada
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
         <div className="bg-red-50 p-6 rounded-full mb-4">
@@ -347,6 +394,39 @@ const Settings: React.FC = () => {
         <p className="text-slate-500 mt-2 max-w-md">
           Apenas Administradores têm permissão para acessar as configurações do sistema.
         </p>
+      </div>
+    );
+  }
+  
+  if (currentUser?.role === UserRole.GUEST) {
+      return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-slate-50 rounded-xl border border-slate-200 m-4">
+        <div className="bg-orange-100 p-6 rounded-full mb-4">
+           <Lock className="w-16 h-16 text-orange-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">Configurações Bloqueadas</h2>
+        <p className="text-slate-600 mt-2 max-w-md mb-6">
+          Você está acessando como Visitante. Para configurar o sistema (Banco de Dados, Usuários), faça login como Administrador.
+        </p>
+        <p className="text-sm text-slate-400">Dica: Se você perdeu o acesso, contate o suporte.</p>
+        
+        {/* Modo de Recuperação Oculto - Apenas para setup inicial */}
+        <div className="mt-8 pt-8 border-t border-slate-200 w-full max-w-md">
+            <p className="text-xs text-slate-400 uppercase font-bold mb-2">Área de Recuperação (Setup)</p>
+            <div className="bg-white p-4 rounded border border-slate-300">
+                <p className="text-xs text-slate-500 mb-2">Se este é o primeiro acesso, configure a API abaixo:</p>
+                <div className="flex gap-2">
+                 <input 
+                   type="text" 
+                   value={apiUrl}
+                   onChange={e => setApiUrl(e.target.value)}
+                   className="flex-1 p-2 bg-slate-50 border border-slate-300 rounded text-xs"
+                   placeholder="URL do Script Google"
+                 />
+                 <button onClick={handleSaveUrl} className="px-3 py-1 bg-slate-800 text-white rounded text-xs">Salvar</button>
+               </div>
+            </div>
+        </div>
       </div>
     );
   }

@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { inventoryService } from '../services/inventoryService';
-import { Plus, Trash2, Save, PackagePlus, CheckCircle, Info, Lock, ShieldAlert } from 'lucide-react';
-import { User, UserRole } from '../types';
+import { Plus, Trash2, Save, PackagePlus, CheckCircle, Info, Lock, ShieldAlert, Search } from 'lucide-react';
+import { User, UserRole, CatalogItem } from '../types';
 
 interface NewItem {
   name: string;
@@ -14,9 +14,9 @@ interface NewItem {
 }
 
 const Entry: React.FC = () => {
-  // User State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
 
   // NE State
   const [neNumber, setNeNumber] = useState('');
@@ -30,7 +30,7 @@ const Entry: React.FC = () => {
     qtyPerPackage: 1,
     initialQty: 0,
     unitValue: 0,
-    minStock: 0 // Inicia zerado, será calculado
+    minStock: 0
   });
 
   const [itemsList, setItemsList] = useState<NewItem[]>([]);
@@ -40,7 +40,10 @@ const Entry: React.FC = () => {
   useEffect(() => {
     const load = async () => {
        try {
-         setCurrentUser(await inventoryService.getCurrentUser());
+         const user = await inventoryService.getCurrentUser();
+         setCurrentUser(user);
+         const cat = await inventoryService.getCatalog();
+         setCatalog(cat);
        } catch (e) {
          console.error(e);
        } finally {
@@ -50,10 +53,18 @@ const Entry: React.FC = () => {
     load();
   }, []);
 
-  // PERMISSÕES:
-  // Apenas ADMIN e MANAGER podem acessar esta página.
-  // OPERATOR e GUEST são bloqueados.
   const hasAccess = currentUser && (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.MANAGER);
+
+  const handleProductSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const found = catalog.find(c => c.name === val);
+    
+    setCurrentItem(prev => ({
+        ...prev,
+        name: val,
+        unit: found ? found.unit : prev.unit // Auto-fill unit if found
+    }));
+  };
 
   const handleAddItem = () => {
     if (!currentItem.name || currentItem.initialQty <= 0 || currentItem.unitValue <= 0) return;
@@ -88,7 +99,6 @@ const Entry: React.FC = () => {
 
   if (pageLoading) return <div className="p-8 text-center text-slate-500">Carregando...</div>;
 
-  // Bloqueio de Acesso
   if (!hasAccess) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
@@ -150,42 +160,62 @@ const Entry: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 className="font-bold text-lg mb-4 text-slate-700 flex items-center gap-2"><Plus size={20} className="text-emerald-600" /> Adicionar Item</h3>
+            
+            {/* Aviso se catálogo vazio */}
+            {catalog.length === 0 && (
+                <div className="mb-4 text-xs text-orange-600 bg-orange-50 p-2 rounded border border-orange-100">
+                    O catálogo de produtos está vazio. Cadastre itens no menu <strong>Catálogo</strong> antes de lançar a NE para padronizar os nomes.
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
-                <input type="text" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100" value={currentItem.name} onChange={e => setCurrentItem({...currentItem, name: e.target.value})} />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Descrição (Busque no Catálogo)</label>
+                <div className="relative">
+                    <input 
+                        list="catalog-list"
+                        type="text" 
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-accent"
+                        value={currentItem.name} 
+                        onChange={handleProductSelect}
+                        placeholder="Digite para buscar..."
+                    />
+                    <datalist id="catalog-list">
+                        {catalog.map((c, i) => <option key={i} value={c.name} />)}
+                    </datalist>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Unidade</label>
-                <select className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100" value={currentItem.unit} onChange={e => setCurrentItem({...currentItem, unit: e.target.value})}>
-                  <option value="UN">UN</option><option value="CX">CX</option><option value="PCT">PCT</option><option value="KG">KG</option><option value="L">L</option>
+                <select className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 bg-slate-100" value={currentItem.unit} onChange={e => setCurrentItem({...currentItem, unit: e.target.value})}>
+                  <option value="UN">UN</option><option value="CX">CX</option><option value="PCT">PCT</option><option value="KG">KG</option><option value="L">L</option><option value="RESMA">RESMA</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Qtd (Unidades)</label>
                 <input 
                   type="number" 
-                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100 focus:ring-2 focus:ring-accent" 
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-accent" 
                   value={currentItem.initialQty} 
                   onChange={e => {
                     const qty = parseFloat(e.target.value);
                     setCurrentItem({
                       ...currentItem, 
                       initialQty: qty,
-                      minStock: Math.ceil(qty * 0.10) // Automático: 10% da quantidade
+                      minStock: Math.ceil(qty * 0.10)
                     });
                   }} 
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Valor Unit. (R$)</label>
-                <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100" value={currentItem.unitValue} onChange={e => setCurrentItem({...currentItem, unitValue: parseFloat(e.target.value)})} />
+                <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-accent" value={currentItem.unitValue} onChange={e => setCurrentItem({...currentItem, unitValue: parseFloat(e.target.value)})} />
               </div>
                <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Estoque Mín. (10%)</label>
                 <input 
                   type="number" 
-                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100 text-slate-600 bg-slate-50" 
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none text-slate-600 bg-slate-100" 
                   value={currentItem.minStock} 
                   onChange={e => setCurrentItem({...currentItem, minStock: parseFloat(e.target.value)})} 
                 />

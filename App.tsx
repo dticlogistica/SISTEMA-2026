@@ -10,6 +10,7 @@ const Distribution = lazy(() => import('./pages/Distribution'));
 const Entry = lazy(() => import('./pages/Entry'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Catalog = lazy(() => import('./pages/Catalog'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -32,6 +33,7 @@ const App: React.FC = () => {
             <Route path="/distribution" element={<Distribution />} />
             <Route path="/entry" element={<Entry />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/catalog" element={<Catalog />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

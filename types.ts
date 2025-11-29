@@ -27,6 +27,12 @@ export interface User {
   password?: string; // Adicionado para suporte a login
 }
 
+export interface CatalogItem {
+  name: string;
+  unit: string;
+  category?: string;
+}
+
 export interface NotaEmpenho {
   id: string; // numero da NE
   supplier: string;
