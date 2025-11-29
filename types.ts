@@ -79,4 +79,5 @@ export interface DashboardStats {
   monthlyOutflow: { month: string; value: number }[];
   topProducts: { name: string; value: number }[];
   currentMonthOutflow: number;
+  criticalItems: { name: string; balance: number; min: number; unit: string }[];
 }

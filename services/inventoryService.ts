@@ -290,12 +290,37 @@ class InventoryService {
       }
   }
 
-  // --- CRYPTO HELPER ---
+  // --- CRYPTO HELPER (PBKDF2) ---
   async hashPassword(password: string): Promise<string> {
     const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    // Gera um Salt fixo (para simplificar, em produção idealmente seria aleatório por usuário)
+    // Como estamos usando Google Sheets e migrando, vamos usar um salt fixo de sistema
+    const salt = encoder.encode("DTIC_ALMOXARIFADO_SECURE_SALT_2026");
+    
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw", 
+      encoder.encode(password), 
+      { name: "PBKDF2" }, 
+      false, 
+      ["deriveBits", "deriveKey"]
+    );
+
+    const key = await crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256"
+      },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+
+    // Exporta a chave como string Hexadecimal
+    const exported = await crypto.subtle.exportKey("raw", key);
+    const hashArray = Array.from(new Uint8Array(exported));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     return hashHex;
   }
@@ -311,11 +336,8 @@ class InventoryService {
     }
 
     // 2. PRIORIDADE MÁXIMA: Se for Admin Resgate, retorna IMEDIATAMENTE, ignorando rede.
-    // Isso garante acesso às configurações mesmo sem internet.
     if (storedEmail === 'admin@resgate') {
-         // Dispara atualização em background sem travar a UI
          if (!this.dataLoaded) this.refreshData().catch(console.error);
-         
          return { 
             email: 'admin@resgate', 
             name: 'Admin Resgate', 
@@ -324,22 +346,18 @@ class InventoryService {
         };
     }
     
-    // 3. Se for um usuário normal, precisamos validar.
-    // Tenta buscar dados, mas se falhar, não trava: cai para cache ou visitante.
+    // 3. Fallback: Se os dados ainda não carregaram, retorna Visitante por segurança até carregar
     if (!this.dataLoaded) {
          try {
-            await this.fetchAllData();
-         } catch (e) {
-            console.warn("Falha ao atualizar dados no login, tentando cache...", e);
-         }
+            this.refreshData(); // Dispara refresh sem await para não travar
+         } catch (e) {}
     }
     
-    // 4. Valida se o usuário ainda existe e está ativo no banco (ou cache)
+    // 4. Valida se o usuário existe no cache
     const found = this.cachedUsers.find(u => u.email === storedEmail && u.active);
     if (found) return found;
 
-    // 5. Fallback FINAL: Se o usuário salvo não for encontrado ou a rede falhou totalmente,
-    // retorna VISITANTE para permitir o acesso e não travar na tela de loading.
+    // 5. Se não achou (ou cache vazio), retorna Visitante para não travar a tela
     return { email: 'public@guest.com', name: 'Visitante', role: UserRole.GUEST, active: true };
   }
 
@@ -357,39 +375,33 @@ class InventoryService {
         return true;
     }
 
-    // Força atualização antes de tentar logar usuários normais
-    try {
-        await this.refreshData();
-    } catch (e) {
-        console.error("Erro de rede no login", e);
-    }
+    if (!password || password.trim() === '') return false;
 
-    // 2. Tenta encontrar o usuário no cache atualizado
+    // Força atualização
+    try { await this.refreshData(); } catch (e) {}
+
     const user = this.cachedUsers.find(u => u.email.toLowerCase() === normalizedEmail && u.active);
     
     if (user) {
-        // Validação Estrita de Senha com Hashing
-        const storedPass = (user.password !== undefined && user.password !== null) ? String(user.password).trim() : '';
-        const inputPass = (password !== undefined && password !== null) ? String(password).trim() : '';
-        
-        // Se a senha armazenada parece ser um hash (64 chars hex), faz hash da entrada
+        const storedPass = (user.password || '').trim();
+        if (!storedPass) return false; // Impede login se senha for nula no banco
+
+        // Verifica se a senha armazenada é um Hash PBKDF2 (64 chars hex)
         if (storedPass.length === 64 && /^[0-9a-fA-F]+$/.test(storedPass)) {
-            const inputHash = await this.hashPassword(inputPass);
+            const inputHash = await this.hashPassword(password.trim());
             if (storedPass === inputHash) {
                 this.setCurrentUser(user);
                 return true;
             }
         } 
-        // Fallback: Tenta comparação texto puro (para senhas legadas ainda não migradas)
-        // ISSO PERMITE QUE O ADMIN ENTRE COM SENHA PROVISÓRIA E DEPOIS TROQUE
-        else if (storedPass === inputPass) {
+        // Fallback: Comparação Texto Puro (Legado)
+        else if (storedPass === password.trim()) {
+            // Opcional: Migrar senha automaticamente
+            // this.changeOwnPassword(password, password); 
             this.setCurrentUser(user);
             return true;
         }
-
-        return false;
     }
-
     return false;
   }
   
@@ -415,12 +427,10 @@ class InventoryService {
     return result && result.success;
   }
   
-  // Novo método para o próprio usuário trocar a senha
   async changeOwnPassword(oldPasswordPlain: string, newPasswordPlain: string): Promise<{ success: boolean; message?: string }> {
     const currentUser = await this.getCurrentUser();
     if (currentUser.role === UserRole.GUEST) return { success: false, message: 'Visitantes não podem alterar senha.' };
     
-    // Re-valida a senha antiga para segurança
     const userInDb = this.cachedUsers.find(u => u.email === currentUser.email);
     if (!userInDb) return { success: false, message: 'Usuário não encontrado.' };
 
@@ -429,13 +439,10 @@ class InventoryService {
     
     let isOldPasswordCorrect = false;
 
-    // Check 1: Se a senha salva for Hash
     if (storedPass.length === 64 && /^[0-9a-fA-F]+$/.test(storedPass)) {
         const oldInputHash = await this.hashPassword(oldPassInput);
         isOldPasswordCorrect = (oldInputHash === storedPass);
-    } 
-    // Check 2: Texto puro (legado ou temporário)
-    else {
+    } else {
         isOldPasswordCorrect = (storedPass === oldPassInput);
     }
 
@@ -443,32 +450,14 @@ class InventoryService {
         return { success: false, message: 'A senha atual está incorreta.' };
     }
 
-    // Gera o Hash da nova senha
     const newHash = await this.hashPassword(newPasswordPlain);
 
-    // Salva o usuário completo com a nova senha hasheada
-    // IMPORTANTE: bypassamos o checkPermissions('saveUser') interno chamando postData diretamente
-    // mas precisamos garantir que o postData permita.
-    // Como o 'saveUser' está restrito a ADMIN no checkPermissions, precisamos de uma exceção
-    // OU chamamos o endpoint diretamente. 
-    
-    // Workaround seguro: Como o 'postData' verifica permissão 'saveUser' que é só para ADMIN,
-    // vamos permitir temporariamente que o próprio usuário salve SEUS dados.
-    // Mas a segurança real está no backend/validação de senha antiga.
-    
-    // Melhor abordagem: Modificar checkPermissions? Não.
-    // Vamos enviar para o backend. O Backend 'saveUser' aceita. O bloqueio está no frontend inventoryService.
-    // Vamos fazer um "Admin Override" interno apenas para troca de senha própria.
-    
     try {
         const url = this.getApiUrl();
         const targetUrl = `${url}?action=saveUser`;
-
-        // Prepara objeto com nova senha
-        const userToUpdate = {
-            ...userInDb,
-            password: newHash
-        };
+        
+        // Mantém os dados, muda a senha
+        const userToUpdate = { ...userInDb, password: newHash };
 
         const response = await fetch(targetUrl, {
             method: 'POST',
@@ -502,6 +491,7 @@ class InventoryService {
     const totalValue = this.cachedProducts.reduce((acc, p) => acc + (p.currentBalance * p.unitValue), 0);
     const lowStock = this.cachedProducts.filter(p => p.currentBalance <= p.minStock).length;
     
+    // Dados para o Gráfico de Evolução (Mantido no objeto, mas talvez não usado na UI)
     const monthlyData = new Map<string, number>();
     let currentMonthOutflow = 0;
     const now = new Date();
@@ -525,13 +515,23 @@ class InventoryService {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
+    // Lógica para Itens Críticos (Nova Funcionalidade)
+    // Filtra produtos com estoque abaixo ou igual ao mínimo
+    // Ordena do menor saldo para o maior (mais crítico primeiro)
+    const criticalItems = this.cachedProducts
+      .filter(p => p.currentBalance <= p.minStock && p.currentBalance >= 0)
+      .sort((a, b) => a.currentBalance - b.currentBalance)
+      .slice(0, 5)
+      .map(p => ({ name: p.name, balance: p.currentBalance, min: p.minStock, unit: p.unit }));
+
     return {
       totalValueStock: totalValue,
       totalItems: this.cachedProducts.length,
       lowStockCount: lowStock,
       monthlyOutflow,
       topProducts,
-      currentMonthOutflow
+      currentMonthOutflow,
+      criticalItems // Retorna a lista de itens críticos
     };
   }
 

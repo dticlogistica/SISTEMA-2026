@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { inventoryService } from '../services/inventoryService';
 import { DashboardStats } from '../types';
-import { TrendingUp, AlertTriangle, Package, DollarSign } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Package, DollarSign, AlertCircle } from 'lucide-react';
 
 const StatCard = ({ title, value, icon, color }: { title: string, value: string, icon: React.ReactNode, color: string }) => (
   <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex items-center gap-4 transition-transform hover:scale-[1.02]">
@@ -76,22 +76,35 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Trend */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold mb-4 text-slate-700">Evolução de Saídas (R$)</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.monthlyOutflow}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="value" name="Valor Distribuído" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
+        {/* Critical Items List (Substituindo o Gráfico de Evolução) */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+          <h3 className="text-lg font-bold mb-4 text-red-700 flex items-center gap-2">
+             <AlertCircle size={20} /> Alertas de Reposição Urgente
+          </h3>
+          <p className="text-xs text-slate-500 mb-4">Top 5 itens com estoque crítico (menor ou igual ao mínimo)</p>
+          
+          <div className="flex-1 overflow-auto">
+            {stats.criticalItems.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-emerald-600 bg-emerald-50 rounded-lg p-6">
+                    <Package size={40} className="mb-2 opacity-50" />
+                    <p className="font-medium">Tudo certo! Estoque saudável.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {stats.criticalItems.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-red-50 border border-red-100 rounded-lg">
+                            <div className="flex flex-col">
+                                <span className="font-bold text-slate-800 text-sm">{item.name}</span>
+                                <span className="text-xs text-red-600 font-medium">Mínimo: {item.min} {item.unit}</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="block text-xl font-bold text-red-700">{item.balance}</span>
+                                <span className="text-[10px] uppercase text-slate-500">Saldo Atual</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
           </div>
         </div>
 

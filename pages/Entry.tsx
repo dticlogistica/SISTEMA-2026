@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { inventoryService } from '../services/inventoryService';
 import { Plus, Trash2, Save, PackagePlus, CheckCircle, Info, Lock, ShieldAlert } from 'lucide-react';
@@ -29,7 +30,7 @@ const Entry: React.FC = () => {
     qtyPerPackage: 1,
     initialQty: 0,
     unitValue: 0,
-    minStock: 5
+    minStock: 0 // Inicia zerado, será calculado
   });
 
   const [itemsList, setItemsList] = useState<NewItem[]>([]);
@@ -58,7 +59,7 @@ const Entry: React.FC = () => {
     if (!currentItem.name || currentItem.initialQty <= 0 || currentItem.unitValue <= 0) return;
     setItemsList(prev => [...prev, currentItem]);
     setCurrentItem({
-      name: '', unit: 'UN', qtyPerPackage: 1, initialQty: 0, unitValue: 0, minStock: 5
+      name: '', unit: 'UN', qtyPerPackage: 1, initialQty: 0, unitValue: 0, minStock: 0
     });
   };
 
@@ -162,15 +163,32 @@ const Entry: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Qtd (Unidades)</label>
-                <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100" value={currentItem.initialQty} onChange={e => setCurrentItem({...currentItem, initialQty: parseFloat(e.target.value)})} />
+                <input 
+                  type="number" 
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100 focus:ring-2 focus:ring-accent" 
+                  value={currentItem.initialQty} 
+                  onChange={e => {
+                    const qty = parseFloat(e.target.value);
+                    setCurrentItem({
+                      ...currentItem, 
+                      initialQty: qty,
+                      minStock: Math.ceil(qty * 0.10) // Automático: 10% da quantidade
+                    });
+                  }} 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Valor Unit. (R$)</label>
                 <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100" value={currentItem.unitValue} onChange={e => setCurrentItem({...currentItem, unitValue: parseFloat(e.target.value)})} />
               </div>
                <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Estoque Mín.</label>
-                <input type="number" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100" value={currentItem.minStock} onChange={e => setCurrentItem({...currentItem, minStock: parseFloat(e.target.value)})} />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Estoque Mín. (10%)</label>
+                <input 
+                  type="number" 
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none disabled:opacity-60 disabled:bg-slate-100 text-slate-600 bg-slate-50" 
+                  value={currentItem.minStock} 
+                  onChange={e => setCurrentItem({...currentItem, minStock: parseFloat(e.target.value)})} 
+                />
               </div>
             </div>
             <div className="flex justify-end">
@@ -186,13 +204,14 @@ const Entry: React.FC = () => {
             {itemsList.length > 0 ? (
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-                  <tr><th className="p-3">Produto</th><th className="p-3 text-right">Qtd</th><th className="p-3 text-right">Total</th><th className="p-3 text-center">Ação</th></tr>
+                  <tr><th className="p-3">Produto</th><th className="p-3 text-right">Qtd</th><th className="p-3 text-right">Min</th><th className="p-3 text-right">Total</th><th className="p-3 text-center">Ação</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {itemsList.map((item, idx) => (
                     <tr key={idx}>
                       <td className="p-3 text-slate-800 font-medium">{item.name}</td>
                       <td className="p-3 text-right">{item.initialQty}</td>
+                      <td className="p-3 text-right text-slate-500">{item.minStock}</td>
                       <td className="p-3 text-right font-bold">R$ {(item.initialQty * item.unitValue).toFixed(2)}</td>
                       <td className="p-3 text-center"><button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 disabled:opacity-50"><Trash2 size={16} /></button></td>
                     </tr>
